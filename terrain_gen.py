@@ -51,32 +51,37 @@ def round_off_block(block_name, z_height):
         
     O.object.mode_set(mode="OBJECT")
 
-def bool_all_meshes(bool_op):
+def bool_all_meshes(count, bool_op):
     
-    O.object.mode_set(mode="OBJECT")
+    O.object.mode_set(mode="OBJECT") 
+    obj_done_list = [0] * (count+1)
+    i = 0
     
     for obj in C.scene.objects:
-        
+        print("Using: ")
+        print(obj.name)
         # Select the new object.
         obj.select_set(True)
         
+        # Keep track of objects done, to avoid duplicating bools
+        obj_done_list[i] = obj
+        i += 1
+        print("mod_objs:")
         for mod_obj in C.scene.objects:
-            if mod_obj != obj:
-                
+            if mod_obj not in obj_done_list:
+                print(mod_obj.name)
                 # Add a modifier
-                #O.object.modifier_add(type='BOOLEAN')
+                O.object.modifier_add(type='BOOLEAN')
 
                 mod = obj.modifiers.new('Boolean', type='BOOLEAN')
-                
-                print(obj.modifiers)
 
+                mod.operation = 'UNION'
                 mod.object = mod_obj
-                mod.operation = bool_op
-
-                # Apply modifier
-                O.object.modifier_apply(apply_as='DATA', modifier=mod.name)
-                
                 sleep(1)
+#                # Apply modifier
+                O.object.modifier_apply()
+#                sleep(1)
+
             
 def create_random_blocks(count, z_min, z_max, x_scale, y_scale):
     
@@ -157,10 +162,10 @@ def main():
     
     create_random_blocks(count, cube_z_min, cube_z_max, base_x_scl, base_y_scl)
     
-    bool_all_meshes('UNION')
+    bool_all_meshes(count, 'UNION')
     # combine into single object
-    #select_all_meshes()
-    #O.object.join()
+    select_all_meshes()
+    O.object.join()
 
 
 if __name__ == "__main__":
