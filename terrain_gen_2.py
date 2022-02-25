@@ -77,7 +77,7 @@ def modify_face_vertices(object_name, vertex_array, size, count, z_min, z_max):
     vertex_ids = [((size+1)*(size+1))+1] * count  
     
     #33 14 15 24 18 17
-    banned_vertex_ids = []
+    banned_vertex_ids = [57,58,66,67,75,76,84,85,93,94,102,103,111]
     
     for obj in C.scene.objects:
         if obj.name == object_name:
@@ -93,14 +93,14 @@ def modify_face_vertices(object_name, vertex_array, size, count, z_min, z_max):
     i = 0
     while(i < count):
         vertex_id = randint(0, size*size)
-        vertex_id = 110
         print(vertex_id)
                 
         if vertex_id in vertex_ids:
             print("oops, skipping...")
             continue
-#        if vertex_id in banned_vertex_ids:
-        if (vertex_id - 10 < 45):
+        if ((vertex_id in banned_vertex_ids)
+         or (vertex_id + (size-1) >= ((size+1)*(size+1))) 
+         or (vertex_id - (size-1) < ((size)*4))):
             print("bruh, no way...")
             continue
         
@@ -140,15 +140,26 @@ def main():
     subdivide_plane("Base", base_size-1)
 
     z_min = 3
-    z_max = 5
-    count = 1 # 30 is the highest safe value, i think. at least for 10x10.
+    z_max = 7
+    count = 5 # 30 is the highest safe value, i think. at least for 10x10.
     # should find a way to calculate it algorithmically
     
     vertex_array = [0] * (base_size + 1) * (base_size + 1)
     
     modify_face_vertices("Base", vertex_array, base_size, count, z_min, z_max)
     print(vertex_array)
-
+    O.object.mode_set(mode = 'EDIT')
+    
+    
+    for a in C.screen.areas:
+        if a.type == 'VIEW_3D':
+            overlay = a.spaces.active.overlay
+            overlay.show_extra_indices = True
+    O.object.mode_set(mode = 'EDIT') 
+    O.mesh.select_mode(type="VERT")
+    O.mesh.select_all(action = 'SELECT')
+    
+    
 if __name__ == "__main__":
     main()
 
