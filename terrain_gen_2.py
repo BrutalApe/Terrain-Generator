@@ -64,9 +64,13 @@ def subdivide_plane(object_name, num_of_cuts):
 
 def adjust_vertex_height(obj, vertex_array, vertex_ids, new_height):
     for v in vertex_ids:
+        value_mod = new_height+1
+        while(value_mod > new_height):
+            value_mod = (round(((randint(0,10)-5)*0.05),3))
+            
         obj.data.vertices[v].select = True
         O.object.mode_set(mode="EDIT")
-        O.transform.translate(value=(0, 0, (new_height)))
+        O.transform.translate(value=(0, 0, new_height+value_mod))
         O.mesh.select_all(action = 'DESELECT')
         O.object.mode_set(mode="OBJECT")
         vertex_array[v] = new_height
@@ -182,7 +186,7 @@ def main():
     remove_all_meshes()
         
     # create base
-    base_size = 10 # 2 is min size
+    base_size = 20 # 2 is min size
     base_x_scl = base_size
     base_y_scl = base_size
 #    create_cube("Base", 0, 0, -0.1, base_x_scl, base_y_scl, 0.1)
@@ -191,8 +195,8 @@ def main():
 
     z_min = 6
     z_max = 7
-    count = 1
-    mountain_level = 4
+    count = 3
+    mountain_level = 6
     
     vertex_array = [0] * (base_size + 1) * (base_size + 1)
     
