@@ -74,7 +74,6 @@ def adjust_vertex_height(obj, vertex_array, vertex_id, new_height):
 
 def modify_face_vertices(object_name, vertex_array, mt_level, size, count, z_min, z_max):
     print("Modifying face vertices...")
-    vertex_ids = [((size+1)*(size+1))+1] * count  
     
     # outer rim of ids, always determined this way, regardless of odd or even
     outermost_layer = list(range(0, size*4))
@@ -112,25 +111,27 @@ def modify_face_vertices(object_name, vertex_array, mt_level, size, count, z_min
     O.mesh.select_all(action = 'DESELECT')
     O.object.mode_set(mode = 'OBJECT')
 
+    available_ids = []
+    print("mt_level", mt_level)
+    for m in range(layer_count):
+        if (m <= mt_level):
+            continue
+        available_ids.extend(layers[m])
     
+    if (count > len(available_ids)):
+        print("Too many hills requested, would repeat...")
+        return
+    
+    print("Available ids:", available_ids)
+        
     i = 0
     while(i < count):
         skip_flag = 0
-        vertex_id = randint(0, (size+1)*(size+1)-1) # can eventually only pick from allowed
+        vertex_id = available_ids[randint(0, len(available_ids)-1)]
         print(vertex_id)
-                
-        if vertex_id in vertex_ids:
-            print("repeat, skipping...")
-            skip_flag = 1
-        for v in range(mt_level+1):
-            if (vertex_id in layers[v]):
-                print("too close to edge, skipping...")
-                skip_flag = 1
-                break
-        if (skip_flag == 1):
-            continue
         
-        vertex_ids[i] = vertex_id
+        available_ids.remove(vertex_id)
+        
         z_scl = randint(z_min, z_max)
         adjust_vertex_height(obj, vertex_array, vertex_id, 0.25*z_scl)
         adjust_vertex_height(obj, vertex_array, vertex_id+1, 0.15*z_scl)
@@ -138,7 +139,9 @@ def modify_face_vertices(object_name, vertex_array, mt_level, size, count, z_min
         adjust_vertex_height(obj, vertex_array, vertex_id+(size-1), 0.15*z_scl)
         adjust_vertex_height(obj, vertex_array, vertex_id-(size-1), 0.15*z_scl)
         i += 1
-
+    
+#    print(available_ids)
+    
 def select_all_meshes():
     for obj in C.scene.objects:
         if obj.type == "MESH":
@@ -158,7 +161,7 @@ def main():
     remove_all_meshes()
         
     # create base
-    base_size = 6 # 2 is min size
+    base_size = 8 # 2 is min size
     base_x_scl = base_size
     base_y_scl = base_size
 #    create_cube("Base", 0, 0, -0.1, base_x_scl, base_y_scl, 0.1)
@@ -167,7 +170,7 @@ def main():
 
     z_min = 3
     z_max = 7
-    count = 1 
+    count = 10
     mountain_level = 1
     
     vertex_array = [0] * (base_size + 1) * (base_size + 1)
