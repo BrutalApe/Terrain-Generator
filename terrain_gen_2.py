@@ -76,6 +76,32 @@ def modify_face_vertices(object_name, vertex_array, size, count, z_min, z_max):
     print("Modifying face vertices...")
     vertex_ids = [((size+1)*(size+1))+1] * count  
     
+    # outer rim of ids, always determined this way, regardless of odd or even
+    outermost_layer = list(range(0, size*4))
+    
+    # now will make list of lists of indices, 
+    # where [0] is outermost, [n] is center index/group of
+    layer_count = size//2 + 1
+    
+    layers = [[] for _ in range(layer_count)]
+    layers[0] = outermost_layer  
+    
+    temp_layer = []
+    for i in range(1,layer_count):
+        temp_layer.extend(list(range(size*4,(size*4)+(size-1))))
+        start_value = (size*5) - 1
+        for j in range(size-3):
+            temp_layer.append(start_value)
+            temp_layer.append(start_value + (size-2))
+            start_value = start_value + 5
+        temp_layer.extend(list(range((size*(size+2))-(size-2),size*(size+2))))
+        print(temp_layer)
+        
+        
+    
+    print("Layers:")
+    print(layers)  
+    
     #33 14 15 24 18 17
     banned_vertex_ids = [57,58,66,67,75,76,84,85,93,94,102,103,111]
     
@@ -92,16 +118,16 @@ def modify_face_vertices(object_name, vertex_array, size, count, z_min, z_max):
     
     i = 0
     while(i < count):
-        vertex_id = randint(0, size*size)
+        vertex_id = randint(0, size*size) # can eventually only pick from allowed
         print(vertex_id)
                 
         if vertex_id in vertex_ids:
-            print("oops, skipping...")
+            print("repeat, skipping...")
             continue
         if ((vertex_id in banned_vertex_ids)
          or (vertex_id + (size-1) >= ((size+1)*(size+1))) 
-         or (vertex_id - (size-1) < ((size)*4))):
-            print("bruh, no way...")
+         or (vertex_id in layers[0])):
+            print("banned, skipping...")
             continue
         
         vertex_ids[i] = vertex_id
@@ -132,7 +158,7 @@ def main():
     remove_all_meshes()
         
     # create base
-    base_size = 10
+    base_size = 6 # 2 is min size
     base_x_scl = base_size
     base_y_scl = base_size
 #    create_cube("Base", 0, 0, -0.1, base_x_scl, base_y_scl, 0.1)
@@ -141,8 +167,7 @@ def main():
 
     z_min = 3
     z_max = 7
-    count = 5 # 30 is the highest safe value, i think. at least for 10x10.
-    # should find a way to calculate it algorithmically
+    count = 1 
     
     vertex_array = [0] * (base_size + 1) * (base_size + 1)
     
