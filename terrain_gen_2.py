@@ -1,8 +1,6 @@
 #terrain_gen_2
 #instead of using cubes, subdivide a plane 
 #raise/lower vertices to achieve same desired terrain effect
-# connect them
-# smoothen thems
 
 import bpy
 from bpy import data as D
@@ -134,13 +132,20 @@ def modify_face_vertices(object_name, vertex_array, mt_level, size, count, z_min
         available_ids.remove(vertex_id)
         
         z_scl = randint(z_min, z_max)
+        vertex_heights = list(range(0,mt_level+1))
+        vertex_heights = [round(((randint(0,10)-5)*0.1/(mt_level+1))+(1 - (n / (mt_level+1))),2) for n in vertex_heights]
+        print("v heights:", vertex_heights)
+        temp_height = round((mt_level+1)*0.1*z_scl,3)
+        for h in range(mt_level+1):
+            vertex_heights[h] = round(vertex_heights[h]*temp_height,3)
+
+        
         vertex_to_update = [vertex_id]
-        vertex_updated = []
+        vertex_updated = []        
         v_adj = size-1
         for l in range(mt_level+1):
-            vh = round((mt_level+1-l)*0.1*z_scl,3)
-            print("L", l, "vtu", vertex_to_update)
-            adjust_vertex_height(obj, vertex_array, vertex_to_update, vh)
+            print("vtu", vertex_to_update)
+            adjust_vertex_height(obj, vertex_array, vertex_to_update, vertex_heights[l])
             vertex_updated.extend(vertex_to_update)
             vertex_to_update[:] = []
             for vi in range(len(vertex_updated)):  
@@ -171,23 +176,23 @@ def remove_all_meshes():
             
 
 def main():
-    print("Generating Terrain...")
+    print("\n\n\n\n\n\n\nGenerating Terrain...")
     
     O.object.mode_set(mode='OBJECT', toggle=False)
     remove_all_meshes()
         
     # create base
-    base_size = 8 # 2 is min size
+    base_size = 10 # 2 is min size
     base_x_scl = base_size
     base_y_scl = base_size
 #    create_cube("Base", 0, 0, -0.1, base_x_scl, base_y_scl, 0.1)
     create_plane("Base", 0, 0, 0, base_x_scl, base_y_scl)
     subdivide_plane("Base", base_size-1)
 
-    z_min = 3
+    z_min = 6
     z_max = 7
     count = 1
-    mountain_level = 2
+    mountain_level = 4
     
     vertex_array = [0] * (base_size + 1) * (base_size + 1)
     
@@ -195,15 +200,15 @@ def main():
     print(vertex_array)
     O.object.mode_set(mode = 'EDIT')
     
-    
-    for a in C.screen.areas:
-        if a.type == 'VIEW_3D':
-            overlay = a.spaces.active.overlay
-            overlay.show_extra_indices = True
-    O.object.mode_set(mode = 'EDIT') 
-    O.mesh.select_mode(type="VERT")
-    O.mesh.select_all(action = 'SELECT')
-    
+#    
+#    for a in C.screen.areas:
+#        if a.type == 'VIEW_3D':
+#            overlay = a.spaces.active.overlay
+#            overlay.show_extra_indices = True
+#    O.object.mode_set(mode = 'EDIT') 
+#    O.mesh.select_mode(type="VERT")
+#    O.mesh.select_all(action = 'SELECT')
+#    
     
 if __name__ == "__main__":
     main()
