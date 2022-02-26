@@ -72,7 +72,7 @@ def adjust_vertex_height(obj, vertex_array, vertex_id, new_height):
     O.object.mode_set(mode="OBJECT")
     vertex_array[vertex_id] = new_height
 
-def modify_face_vertices(object_name, vertex_array, size, count, z_min, z_max):
+def modify_face_vertices(object_name, vertex_array, mt_level, size, count, z_min, z_max):
     print("Modifying face vertices...")
     vertex_ids = [((size+1)*(size+1))+1] * count  
     
@@ -85,25 +85,21 @@ def modify_face_vertices(object_name, vertex_array, size, count, z_min, z_max):
     
     layers = [[] for _ in range(layer_count)]
     layers[0] = outermost_layer  
-    
-    temp_layer = []
+
     for i in range(1,layer_count):
-        temp_layer.extend(list(range(size*4,(size*4)+(size-1))))
-        start_value = (size*5) - 1
-        for j in range(size-3):
-            temp_layer.append(start_value)
-            temp_layer.append(start_value + (size-2))
-            start_value = start_value + 5
-        temp_layer.extend(list(range((size*(size+2))-(size-2),size*(size+2))))
-        print(temp_layer)
-        
-        
-    
+        if ((i == layer_count-1) and (size%2==0)): # even and last layer; center/group of 4
+            layers[i].append(size*(3+i))
+        else:
+            layers[i].extend(list(range(size*(3+i),(size*(3+i))+(size-(2*i)+1))))                 
+            value_pair_start = size*(3+i) + (size-1)
+            for j in range(size-((2*i) + 1)):
+                layers[i].append(value_pair_start)
+                layers[i].append(value_pair_start + (size-(2*i)))
+                value_pair_start = value_pair_start + (size-1)
+            layers[i].extend(list(range((size*(size+3-i))-(size-(2*i)),(size*(size+3-i))+1)))
+
     print("Layers:")
     print(layers)  
-    
-    #33 14 15 24 18 17
-    banned_vertex_ids = [57,58,66,67,75,76,84,85,93,94,102,103,111]
     
     for obj in C.scene.objects:
         if obj.name == object_name:
@@ -115,19 +111,23 @@ def modify_face_vertices(object_name, vertex_array, size, count, z_min, z_max):
     O.mesh.select_mode(type="VERT")
     O.mesh.select_all(action = 'DESELECT')
     O.object.mode_set(mode = 'OBJECT')
+
     
     i = 0
     while(i < count):
-        vertex_id = randint(0, size*size) # can eventually only pick from allowed
+        skip_flag = 0
+        vertex_id = randint(0, (size+1)*(size+1)-1) # can eventually only pick from allowed
         print(vertex_id)
                 
         if vertex_id in vertex_ids:
             print("repeat, skipping...")
-            continue
-        if ((vertex_id in banned_vertex_ids)
-         or (vertex_id + (size-1) >= ((size+1)*(size+1))) 
-         or (vertex_id in layers[0])):
-            print("banned, skipping...")
+            skip_flag = 1
+        for v in range(mt_level+1):
+            if (vertex_id in layers[v]):
+                print("too close to edge, skipping...")
+                skip_flag = 1
+                break
+        if (skip_flag == 1):
             continue
         
         vertex_ids[i] = vertex_id
@@ -168,10 +168,11 @@ def main():
     z_min = 3
     z_max = 7
     count = 1 
+    mountain_level = 1
     
     vertex_array = [0] * (base_size + 1) * (base_size + 1)
     
-    modify_face_vertices("Base", vertex_array, base_size, count, z_min, z_max)
+    modify_face_vertices("Base", vertex_array, mountain_level, base_size, count, z_min, z_max)
     print(vertex_array)
     O.object.mode_set(mode = 'EDIT')
     
