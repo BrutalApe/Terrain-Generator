@@ -64,13 +64,14 @@ def subdivide_plane(object_name, num_of_cuts):
     O.mesh.subdivide(number_cuts=num_of_cuts)
     O.object.mode_set(mode="OBJECT")
 
-def adjust_vertex_height(obj, vertex_array, vertex_id, new_height):
-    obj.data.vertices[vertex_id].select = True
-    O.object.mode_set(mode="EDIT")
-    O.transform.translate(value=(0, 0, (new_height)))
-    O.mesh.select_all(action = 'DESELECT')
-    O.object.mode_set(mode="OBJECT")
-    vertex_array[vertex_id] = new_height
+def adjust_vertex_height(obj, vertex_array, vertex_ids, new_height):
+    for v in vertex_ids:
+        obj.data.vertices[v].select = True
+        O.object.mode_set(mode="EDIT")
+        O.transform.translate(value=(0, 0, (new_height)))
+        O.mesh.select_all(action = 'DESELECT')
+        O.object.mode_set(mode="OBJECT")
+        vertex_array[v] = new_height
 
 def modify_face_vertices(object_name, vertex_array, mt_level, size, count, z_min, z_max):
     print("Modifying face vertices...")
@@ -133,11 +134,26 @@ def modify_face_vertices(object_name, vertex_array, mt_level, size, count, z_min
         available_ids.remove(vertex_id)
         
         z_scl = randint(z_min, z_max)
-        adjust_vertex_height(obj, vertex_array, vertex_id, 0.25*z_scl)
-        adjust_vertex_height(obj, vertex_array, vertex_id+1, 0.15*z_scl)
-        adjust_vertex_height(obj, vertex_array, vertex_id-1, 0.15*z_scl)
-        adjust_vertex_height(obj, vertex_array, vertex_id+(size-1), 0.15*z_scl)
-        adjust_vertex_height(obj, vertex_array, vertex_id-(size-1), 0.15*z_scl)
+        vertex_to_update = [vertex_id]
+        vertex_updated = []
+        v_adj = size-1
+        for l in range(mt_level+1):
+            vh = round((mt_level+1-l)*0.1*z_scl,3)
+            print("L", l, "vtu", vertex_to_update)
+            adjust_vertex_height(obj, vertex_array, vertex_to_update, vh)
+            vertex_updated.extend(vertex_to_update)
+            vertex_to_update[:] = []
+            for vi in range(len(vertex_updated)):  
+                v = vertex_updated[vi]
+                if (v+v_adj not in vertex_updated) and (v+v_adj not in vertex_to_update):
+                    vertex_to_update.append(v+v_adj)
+                if (v-v_adj not in vertex_updated) and (v-v_adj not in vertex_to_update):
+                    vertex_to_update.append(v-v_adj)
+                if (v+1 not in vertex_updated) and (v+1 not in vertex_to_update):
+                    vertex_to_update.append(v+1)
+                if (v-1 not in vertex_updated) and (v-1 not in vertex_to_update):
+                    vertex_to_update.append(v-1)
+                    
         i += 1
     
 #    print(available_ids)
@@ -170,8 +186,8 @@ def main():
 
     z_min = 3
     z_max = 7
-    count = 10
-    mountain_level = 1
+    count = 1
+    mountain_level = 2
     
     vertex_array = [0] * (base_size + 1) * (base_size + 1)
     
