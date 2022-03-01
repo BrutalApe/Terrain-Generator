@@ -1,6 +1,8 @@
 #terrain_gen_2
 #instead of using cubes, subdivide a plane 
 #raise/lower vertices to achieve same desired terrain effect
+# fname = "C:/Users/scott/Documents/Projects/terrain_gen_2.py"
+# exec(compile(open(fname).read(), fname, 'exec'))
 
 import bpy
 from bpy import data as D
@@ -62,21 +64,33 @@ def subdivide_plane(object_name, num_of_cuts):
     O.mesh.subdivide(number_cuts=num_of_cuts)
     O.object.mode_set(mode="OBJECT")
 
-def adjust_vertex_height(obj, vertex_array, vertex_ids, new_height):
+def select_vertex(obj, v):
+    obj.data.vertices[v].select = True
+    return
+
+def adjust_vertex_height(obj, vertex_array, vertex_ids, new_heights):
+    value_mod = 0
+    h_idx = 0
     for v in vertex_ids:
-        value_mod = new_height+1
-        while(value_mod > new_height):
-            value_mod = (round(((randint(0,10)-5)*0.05),3))
+    #     value_mod = new_height+1
+    #     while(value_mod > new_height):
+    #         value_mod = (round(((randint(0,10)-5)*0.25),3))
             
-        obj.data.vertices[v].select = True
+        select_vertex(obj, v)
         O.object.mode_set(mode="EDIT")
-        O.transform.translate(value=(0, 0, new_height+value_mod))
+        O.transform.translate(value=(0, 0, new_heights[h_idx]))
         O.mesh.select_all(action = 'DESELECT')
         O.object.mode_set(mode="OBJECT")
-        vertex_array[v] = new_height
+        vertex_array[v] = new_heights[h_idx]
+        h_idx += 1
 
-def modify_face_vertices(object_name, vertex_array, mt_level, size, count, z_min, z_max):
-    print("Modifying face vertices...")
+def variate_num(num):
+    variation = ((((randint(0,20))/20) - 0.5) * 0.4)
+    # print(variation)
+    return round(num + variation, 3)
+
+def create_mountains(object_name, vertex_array, mt_level, size, count, z_min, z_max):
+    print("Creating mountains...")
     
     # outer rim of ids, always determined this way, regardless of odd or even
     outermost_layer = list(range(0, size*4))
@@ -100,8 +114,8 @@ def modify_face_vertices(object_name, vertex_array, mt_level, size, count, z_min
                 value_pair_start = value_pair_start + (size-1)
             layers[i].extend(list(range((size*(size+3-i))-(size-(2*i)),(size*(size+3-i))+1)))
 
-    print("Layers:")
-    print(layers)  
+#    print("Layers:")
+#    print(layers)  
     
     for obj in C.scene.objects:
         if obj.name == object_name:
@@ -125,7 +139,7 @@ def modify_face_vertices(object_name, vertex_array, mt_level, size, count, z_min
         print("Too many hills requested, would repeat...")
         return
     
-    print("Available ids:", available_ids)
+#    print("Available ids:", available_ids)
         
     i = 0
     while(i < count):
@@ -136,32 +150,63 @@ def modify_face_vertices(object_name, vertex_array, mt_level, size, count, z_min
         available_ids.remove(vertex_id)
         
         z_scl = randint(z_min, z_max)
-        vertex_heights = list(range(0,mt_level+1))
-        vertex_heights = [round(((randint(0,10)-5)*0.1/(mt_level+1))+(1 - (n / (mt_level+1))),2) for n in vertex_heights]
-        print("v heights:", vertex_heights)
+        vertex_heights_base = list(range(0,mt_level+1))
+        # vertex_heights = [round(((randint(0,10)-5)*0.1/(mt_level+1))+(1 - (n / (mt_level+1))),2) for n in vertex_heights]
+        vertex_heights_base = [round((1 - (n / (mt_level+1))),2) for n in vertex_heights_base]
+        # print(vertex_heights_base)
+#        print("v heights:", vertex_heights)
         temp_height = round((mt_level+1)*0.1*z_scl,3)
         for h in range(mt_level+1):
-            vertex_heights[h] = round(vertex_heights[h]*temp_height,3)
-
+            vertex_heights_base[h] = round(vertex_heights_base[h]*temp_height,3)
+        # print(vertex_heights_base)
         
         vertex_to_update = [vertex_id]
+        vertex_heights_to_update = [variate_num(vertex_heights_base[0])]
         vertex_updated = []        
         v_adj = size-1
         for l in range(mt_level+1):
-            print("vtu", vertex_to_update)
-            adjust_vertex_height(obj, vertex_array, vertex_to_update, vertex_heights[l])
+#            print("vtu", vertex_to_update)
+#            print(vertex_heights_to_update)
+            adjust_vertex_height(obj, vertex_array, vertex_to_update, vertex_heights_to_update)
+            if (l == mt_level):
+                break
             vertex_updated.extend(vertex_to_update)
             vertex_to_update[:] = []
+            vertex_heights_to_update[:] = []
             for vi in range(len(vertex_updated)):  
                 v = vertex_updated[vi]
                 if (v+v_adj not in vertex_updated) and (v+v_adj not in vertex_to_update):
                     vertex_to_update.append(v+v_adj)
+                    vertex_heights_to_update.append(variate_num(vertex_heights_base[l+1]))
                 if (v-v_adj not in vertex_updated) and (v-v_adj not in vertex_to_update):
                     vertex_to_update.append(v-v_adj)
+                    vertex_heights_to_update.append(variate_num(vertex_heights_base[l+1]))
                 if (v+1 not in vertex_updated) and (v+1 not in vertex_to_update):
                     vertex_to_update.append(v+1)
+                    vertex_heights_to_update.append(variate_num(vertex_heights_base[l+1]))
                 if (v-1 not in vertex_updated) and (v-1 not in vertex_to_update):
                     vertex_to_update.append(v-1)
+                    vertex_heights_to_update.append(variate_num(vertex_heights_base[l+1]))
+        
+        # now, extra layers (existence of each vertex random):
+        v_corners = [mt_level, -mt_level, ((size-1)*(mt_level)), -((size-1)*(mt_level))]
+        v_corners = [(vertex_id + v) for v in v_corners]
+
+        for e in range((mt_level+2)//3):
+            print(e)
+            outer_ring = []
+
+            for o in range(1,mt_level):
+                print(o)
+                outer_ring.append(vertex_id + (o*(size-1)) + (mt_level-o))
+                outer_ring.append(vertex_id + (o*(size-1)) - (mt_level-o))
+                outer_ring.append(vertex_id - (o*(size-1)) + (mt_level-o))
+                outer_ring.append(vertex_id - (o*(size-1)) - (mt_level-o))
+            print(outer_ring)
+
+            for o in range(len(outer_ring)):
+                select_vertex(obj, outer_ring[o])
+
                     
         i += 1
     
@@ -186,7 +231,7 @@ def main():
     remove_all_meshes()
         
     # create base
-    base_size = 20 # 2 is min size
+    base_size = 14 # 2 is min size
     base_x_scl = base_size
     base_y_scl = base_size
 #    create_cube("Base", 0, 0, -0.1, base_x_scl, base_y_scl, 0.1)
@@ -195,23 +240,23 @@ def main():
 
     z_min = 6
     z_max = 7
-    count = 3
-    mountain_level = 6
+    count = 1
+    mountain_level = 4
     
     vertex_array = [0] * (base_size + 1) * (base_size + 1)
     
-    modify_face_vertices("Base", vertex_array, mountain_level, base_size, count, z_min, z_max)
-    print(vertex_array)
+    create_mountains("Base", vertex_array, mountain_level, base_size, count, z_min, z_max)
+#    print(vertex_array)
     O.object.mode_set(mode = 'EDIT')
     
 #    
-#    for a in C.screen.areas:
-#        if a.type == 'VIEW_3D':
-#            overlay = a.spaces.active.overlay
-#            overlay.show_extra_indices = True
-#    O.object.mode_set(mode = 'EDIT') 
-#    O.mesh.select_mode(type="VERT")
-#    O.mesh.select_all(action = 'SELECT')
+    # for a in C.screen.areas:
+    #     if a.type == 'VIEW_3D':
+    #         overlay = a.spaces.active.overlay
+    #         overlay.show_extra_indices = True
+    # O.object.mode_set(mode = 'EDIT') 
+    # O.mesh.select_mode(type="VERT")
+    # O.mesh.select_all(action = 'SELECT')
 #    
     
 if __name__ == "__main__":
