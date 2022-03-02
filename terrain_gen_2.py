@@ -8,6 +8,7 @@ import bpy
 from bpy import data as D
 from bpy import context as C
 from bpy import ops as O
+import bmesh
 
 from mathutils import *
 from math import *
@@ -31,6 +32,41 @@ def create_plane(name, x_loc, y_loc, z_loc, x_scl, y_scl):
     for obj in C.selected_objects:
         if (obj.type == "MESH") and (obj.name == "Plane"):
             obj.name = name
+def triangulate_object(obj_name):
+    for obj in C.scene.objects:
+        if obj.name == obj_name:
+            obj.select_set(True)
+
+    obj = bpy.context.active_object
+    me = obj.data
+    # Get a BMesh representation
+    bm = bmesh.new()
+    bm.from_mesh(me)
+
+    bmesh.ops.triangulate(bm, faces=bm.faces[:])
+    # V2.79 : bmesh.ops.triangulate(bm, faces=bm.faces[:], quad_method=0, ngon_method=0)
+
+    # Finish up, write the bmesh back to the mesh
+    bm.to_mesh(me)
+    bm.free()
+
+def triangulate_edit_object(obj_name):
+    for obj in C.scene.objects:
+        if obj.name == obj_name:
+            obj.select_set(True)
+
+    obj = bpy.context.active_object
+
+    O.object.mode_set(mode = 'EDIT') 
+    me = obj.data
+    # Get a BMesh representation
+    bm = bmesh.from_edit_mesh(me)
+
+    bmesh.ops.triangulate(bm, faces=bm.faces[:])
+
+    # Show the updates in the viewport
+    # and recalculate n-gon tessellation.
+    bmesh.update_edit_mesh(me, True)
 
 def subdivide_face(object_name, face, num_of_cuts):
     print("Subdividing face...")
@@ -278,8 +314,8 @@ def main():
     
     create_mountains("Base", vertex_array, mountain_level, base_size, count, z_min, z_max)
 #    print(vertex_array)
-    # O.object.mode_set(mode = 'EDIT')
-    
+
+    triangulate_object("Base")
 #    
     # for a in C.screen.areas:
     #     if a.type == 'VIEW_3D':
