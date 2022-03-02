@@ -84,8 +84,8 @@ def adjust_vertex_height(obj, vertex_array, vertex_ids, new_heights):
         vertex_array[v] = new_heights[h_idx]
         h_idx += 1
 
-def variate_num(num):
-    variation = ((((randint(0,20))/20) - 0.5) * 0.4)
+def variate_num(num, var):
+    variation = ((((randint(0,20))/20) - 0.5) * var)
     # print(variation)
     return round(num + variation, 3)
 
@@ -161,52 +161,80 @@ def create_mountains(object_name, vertex_array, mt_level, size, count, z_min, z_
         # print(vertex_heights_base)
         
         vertex_to_update = [vertex_id]
-        vertex_heights_to_update = [variate_num(vertex_heights_base[0])]
+        vertex_heights_to_update = [variate_num(vertex_heights_base[0], 0.4)]
         vertex_updated = []        
         v_adj = size-1
         for l in range(mt_level+1):
-#            print("vtu", vertex_to_update)
+            # print("vtu", vertex_to_update)
 #            print(vertex_heights_to_update)
             adjust_vertex_height(obj, vertex_array, vertex_to_update, vertex_heights_to_update)
+            vertex_updated.extend(vertex_to_update)
             if (l == mt_level):
                 break
-            vertex_updated.extend(vertex_to_update)
             vertex_to_update[:] = []
             vertex_heights_to_update[:] = []
             for vi in range(len(vertex_updated)):  
                 v = vertex_updated[vi]
                 if (v+v_adj not in vertex_updated) and (v+v_adj not in vertex_to_update):
                     vertex_to_update.append(v+v_adj)
-                    vertex_heights_to_update.append(variate_num(vertex_heights_base[l+1]))
+                    vertex_heights_to_update.append(variate_num(vertex_heights_base[l+1], 0.4))
                 if (v-v_adj not in vertex_updated) and (v-v_adj not in vertex_to_update):
                     vertex_to_update.append(v-v_adj)
-                    vertex_heights_to_update.append(variate_num(vertex_heights_base[l+1]))
+                    vertex_heights_to_update.append(variate_num(vertex_heights_base[l+1], 0.4))
                 if (v+1 not in vertex_updated) and (v+1 not in vertex_to_update):
                     vertex_to_update.append(v+1)
-                    vertex_heights_to_update.append(variate_num(vertex_heights_base[l+1]))
+                    vertex_heights_to_update.append(variate_num(vertex_heights_base[l+1], 0.4))
                 if (v-1 not in vertex_updated) and (v-1 not in vertex_to_update):
                     vertex_to_update.append(v-1)
-                    vertex_heights_to_update.append(variate_num(vertex_heights_base[l+1]))
+                    vertex_heights_to_update.append(variate_num(vertex_heights_base[l+1], 0.4))
         
         # now, extra layers (existence of each vertex random):
         v_corners = [mt_level, -mt_level, ((size-1)*(mt_level)), -((size-1)*(mt_level))]
         v_corners = [(vertex_id + v) for v in v_corners]
 
-        for e in range((mt_level+2)//3):
-            print(e)
-            outer_ring = []
+        extra_layers = (mt_level+2)//3
 
-            for o in range(1,mt_level):
-                print(o)
-                outer_ring.append(vertex_id + (o*(size-1)) + (mt_level-o))
-                outer_ring.append(vertex_id + (o*(size-1)) - (mt_level-o))
-                outer_ring.append(vertex_id - (o*(size-1)) + (mt_level-o))
-                outer_ring.append(vertex_id - (o*(size-1)) - (mt_level-o))
-            print(outer_ring)
+        extra_vertex_heights_base = list(range(0,extra_layers))
+        extra_vertex_heights_base = [round(((extra_layers/(extra_layers+1)) - (n / extra_layers)),2) for n in extra_vertex_heights_base]
+        for h in range(extra_layers):
+            extra_vertex_heights_base[h] = round(extra_vertex_heights_base[h]*vertex_heights_base[mt_level],3)
+        # print(extra_vertex_heights_base)
+        
+        outer_ring = []
+        for e in range(extra_layers):
+            # print(e)
+            outer_ring[:] = []
+
+            for o in range(1,mt_level-e):
+                # print(o)
+                outer_ring.append(vertex_id + ((e+o)*v_adj) + (mt_level-o))
+                outer_ring.append(vertex_id + ((e+o)*v_adj) - (mt_level-o))
+                outer_ring.append(vertex_id - ((e+o)*v_adj) + (mt_level-o))
+                outer_ring.append(vertex_id - ((e+o)*v_adj) - (mt_level-o))
+            # print(outer_ring)
 
             for o in range(len(outer_ring)):
-                select_vertex(obj, outer_ring[o])
+                # select_vertex(obj, outer_ring[o])
+                v = outer_ring[o]
+                # print(v)
+                vertex_to_update[:] = []
+                vertex_heights_to_update[:] = []
+                if (v+v_adj not in vertex_updated):
+                    vertex_to_update.append(v+v_adj)
+                    vertex_heights_to_update.append(variate_num(extra_vertex_heights_base[e], 0.2))
+                if (v-v_adj not in vertex_updated):
+                    vertex_to_update.append(v-v_adj)
+                    vertex_heights_to_update.append(variate_num(extra_vertex_heights_base[e], 0.2))
+                if (v+1 not in vertex_updated):
+                    vertex_to_update.append(v+1)
+                    vertex_heights_to_update.append(variate_num(extra_vertex_heights_base[e], 0.2))
+                if (v-1 not in vertex_updated):
+                    vertex_to_update.append(v-1)
+                    vertex_heights_to_update.append(variate_num(extra_vertex_heights_base[e], 0.2))
+                vertex_updated.extend(vertex_to_update)
 
+                adjust_vertex_height(obj, vertex_array, vertex_to_update, vertex_heights_to_update)
+            # print(vertex_updated)
                     
         i += 1
     
@@ -231,23 +259,24 @@ def main():
     remove_all_meshes()
         
     # create base
-    base_size = 14 # 2 is min size
+    base_size = 20 # 2 is min size
+    z_min = 6
+    z_max = 7
+    count = 6
+    mountain_level = 4
+    
     base_x_scl = base_size
     base_y_scl = base_size
 #    create_cube("Base", 0, 0, -0.1, base_x_scl, base_y_scl, 0.1)
     create_plane("Base", 0, 0, 0, base_x_scl, base_y_scl)
     subdivide_plane("Base", base_size-1)
 
-    z_min = 6
-    z_max = 7
-    count = 1
-    mountain_level = 4
     
     vertex_array = [0] * (base_size + 1) * (base_size + 1)
     
     create_mountains("Base", vertex_array, mountain_level, base_size, count, z_min, z_max)
 #    print(vertex_array)
-    O.object.mode_set(mode = 'EDIT')
+    # O.object.mode_set(mode = 'EDIT')
     
 #    
     # for a in C.screen.areas:
