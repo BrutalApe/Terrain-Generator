@@ -193,11 +193,13 @@ def create_mountains(object_name, vertex_array, mt_level, size, count, z_min, z_
         v_corners = [(vertex_id + v) for v in v_corners]
 
         extra_layers = (mt_level+2)//3
+        existence_prob = [0]*extra_layers
 
         extra_vertex_heights_base = list(range(0,extra_layers))
         extra_vertex_heights_base = [round(((extra_layers/(extra_layers+1)) - (n / extra_layers)),2) for n in extra_vertex_heights_base]
         for h in range(extra_layers):
             extra_vertex_heights_base[h] = round(extra_vertex_heights_base[h]*vertex_heights_base[mt_level],3)
+            existence_prob[h] = (100/(h+2))
         # print(extra_vertex_heights_base)
         
         outer_ring = []
@@ -219,16 +221,16 @@ def create_mountains(object_name, vertex_array, mt_level, size, count, z_min, z_
                 # print(v)
                 vertex_to_update[:] = []
                 vertex_heights_to_update[:] = []
-                if (v+v_adj not in vertex_updated):
+                if (v+v_adj not in vertex_updated) and (randint(1,100) <= existence_prob[e]):
                     vertex_to_update.append(v+v_adj)
                     vertex_heights_to_update.append(variate_num(extra_vertex_heights_base[e], 0.2))
-                if (v-v_adj not in vertex_updated):
+                if (v-v_adj not in vertex_updated) and (randint(1,100) <= existence_prob[e]):
                     vertex_to_update.append(v-v_adj)
                     vertex_heights_to_update.append(variate_num(extra_vertex_heights_base[e], 0.2))
-                if (v+1 not in vertex_updated):
+                if (v+1 not in vertex_updated) and (randint(1,100) <= existence_prob[e]):
                     vertex_to_update.append(v+1)
                     vertex_heights_to_update.append(variate_num(extra_vertex_heights_base[e], 0.2))
-                if (v-1 not in vertex_updated):
+                if (v-1 not in vertex_updated) and (randint(1,100) <= existence_prob[e]):
                     vertex_to_update.append(v-1)
                     vertex_heights_to_update.append(variate_num(extra_vertex_heights_base[e], 0.2))
                 vertex_updated.extend(vertex_to_update)
