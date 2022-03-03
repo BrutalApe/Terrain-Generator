@@ -32,23 +32,6 @@ def create_plane(name, x_loc, y_loc, z_loc, x_scl, y_scl):
     for obj in C.selected_objects:
         if (obj.type == "MESH") and (obj.name == "Plane"):
             obj.name = name
-def triangulate_object(obj_name):
-    for obj in C.scene.objects:
-        if obj.name == obj_name:
-            obj.select_set(True)
-
-    obj = bpy.context.active_object
-    me = obj.data
-    # Get a BMesh representation
-    bm = bmesh.new()
-    bm.from_mesh(me)
-
-    bmesh.ops.triangulate(bm, faces=bm.faces[:])
-    # V2.79 : bmesh.ops.triangulate(bm, faces=bm.faces[:], quad_method=0, ngon_method=0)
-
-    # Finish up, write the bmesh back to the mesh
-    bm.to_mesh(me)
-    bm.free()
 
 def triangulate_edit_object(obj_name):
     for obj in C.scene.objects:
@@ -61,9 +44,13 @@ def triangulate_edit_object(obj_name):
     me = obj.data
     # Get a BMesh representation
     bm = bmesh.from_edit_mesh(me)
-
-    bmesh.ops.triangulate(bm, faces=bm.faces[:])
-
+    
+    for f in bm.faces:
+        for v in f.verts:
+            if (v.co.z != 0):
+                bmesh.ops.triangulate(bm, faces=bm.faces[(f.index):(f.index+1)])
+                break
+    
     # Show the updates in the viewport
     # and recalculate n-gon tessellation.
     bmesh.update_edit_mesh(me, True)
@@ -314,8 +301,9 @@ def main():
     
     create_mountains("Base", vertex_array, mountain_level, base_size, count, z_min, z_max)
 #    print(vertex_array)
+    O.object.mode_set(mode = 'EDIT') 
 
-    triangulate_object("Base")
+    triangulate_edit_object("Base")
 #    
     # for a in C.screen.areas:
     #     if a.type == 'VIEW_3D':
