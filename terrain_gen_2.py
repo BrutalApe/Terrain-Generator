@@ -183,6 +183,15 @@ def create_mountains(object_name, vertex_array, mt_level, size, count, z_min, z_
             vertex_heights_base[h] = round(vertex_heights_base[h]*temp_height,3)
         # print(vertex_heights_base)
         
+        extra_layers = (mt_level+2)//3
+        existence_prob = [100]*(mt_level+extra_layers)
+
+        for el in range(mt_level+extra_layers):
+            if (el < mt_level):
+                existence_prob[el] = (existence_prob[el]-(5*el))
+            else:
+                existence_prob[el] = (existence_prob[el]/(el-mt_level+2))
+
         vertex_to_update = [vertex_id]
         vertex_heights_to_update = [variate_num(vertex_heights_base[0], 0.4)]
         vertex_updated = []        
@@ -196,18 +205,18 @@ def create_mountains(object_name, vertex_array, mt_level, size, count, z_min, z_
                 break
             vertex_to_update[:] = []
             vertex_heights_to_update[:] = []
-            for vi in range(len(vertex_updated)):  
+            for vi in range(len(vertex_updated)):
                 v = vertex_updated[vi]
-                if (v+v_adj not in vertex_updated) and (v+v_adj not in vertex_to_update):
+                if (v+v_adj not in vertex_updated) and (v+v_adj not in vertex_to_update) and (randint(1,100) <= existence_prob[l]):
                     vertex_to_update.append(v+v_adj)
                     vertex_heights_to_update.append(variate_num(vertex_heights_base[l+1], 0.4))
-                if (v-v_adj not in vertex_updated) and (v-v_adj not in vertex_to_update):
+                if (v-v_adj not in vertex_updated) and (v-v_adj not in vertex_to_update) and (randint(1,100) <= existence_prob[l]):
                     vertex_to_update.append(v-v_adj)
                     vertex_heights_to_update.append(variate_num(vertex_heights_base[l+1], 0.4))
-                if (v+1 not in vertex_updated) and (v+1 not in vertex_to_update):
+                if (v+1 not in vertex_updated) and (v+1 not in vertex_to_update) and (randint(1,100) <= existence_prob[l]):
                     vertex_to_update.append(v+1)
                     vertex_heights_to_update.append(variate_num(vertex_heights_base[l+1], 0.4))
-                if (v-1 not in vertex_updated) and (v-1 not in vertex_to_update):
+                if (v-1 not in vertex_updated) and (v-1 not in vertex_to_update) and (randint(1,100) <= existence_prob[l]):
                     vertex_to_update.append(v-1)
                     vertex_heights_to_update.append(variate_num(vertex_heights_base[l+1], 0.4))
         
@@ -215,14 +224,11 @@ def create_mountains(object_name, vertex_array, mt_level, size, count, z_min, z_
         v_corners = [mt_level, -mt_level, ((size-1)*(mt_level)), -((size-1)*(mt_level))]
         v_corners = [(vertex_id + v) for v in v_corners]
 
-        extra_layers = (mt_level+2)//3
-        existence_prob = [0]*extra_layers
-
         extra_vertex_heights_base = list(range(0,extra_layers))
         extra_vertex_heights_base = [round(((extra_layers/(extra_layers+1)) - (n / extra_layers)),2) for n in extra_vertex_heights_base]
         for h in range(extra_layers):
             extra_vertex_heights_base[h] = round(extra_vertex_heights_base[h]*vertex_heights_base[mt_level],3)
-            existence_prob[h] = (100/(h+2))
+            existence_prob[h+mt_level] = (100/(h+2))
         # print(extra_vertex_heights_base)
         
         outer_ring = []
@@ -244,16 +250,16 @@ def create_mountains(object_name, vertex_array, mt_level, size, count, z_min, z_
                 # print(v)
                 vertex_to_update[:] = []
                 vertex_heights_to_update[:] = []
-                if (v+v_adj not in vertex_updated) and (randint(1,100) <= existence_prob[e]):
+                if (v+v_adj not in vertex_updated) and (randint(1,100) <= existence_prob[e+mt_level]):
                     vertex_to_update.append(v+v_adj)
                     vertex_heights_to_update.append(variate_num(extra_vertex_heights_base[e], 0.2))
-                if (v-v_adj not in vertex_updated) and (randint(1,100) <= existence_prob[e]):
+                if (v-v_adj not in vertex_updated) and (randint(1,100) <= existence_prob[e+mt_level]):
                     vertex_to_update.append(v-v_adj)
                     vertex_heights_to_update.append(variate_num(extra_vertex_heights_base[e], 0.2))
-                if (v+1 not in vertex_updated) and (randint(1,100) <= existence_prob[e]):
+                if (v+1 not in vertex_updated) and (randint(1,100) <= existence_prob[e+mt_level]):
                     vertex_to_update.append(v+1)
                     vertex_heights_to_update.append(variate_num(extra_vertex_heights_base[e], 0.2))
-                if (v-1 not in vertex_updated) and (randint(1,100) <= existence_prob[e]):
+                if (v-1 not in vertex_updated) and (randint(1,100) <= existence_prob[e+mt_level]):
                     vertex_to_update.append(v-1)
                     vertex_heights_to_update.append(variate_num(extra_vertex_heights_base[e], 0.2))
                 vertex_updated.extend(vertex_to_update)
@@ -284,11 +290,11 @@ def main():
     remove_all_meshes()
         
     # create base
-    base_size = 20 # 2 is min size
+    base_size = 14 # 2 is min size
     z_min = 6
     z_max = 7
-    count = 6
-    mountain_level = 4
+    count = 1
+    mountain_level = 6
     
     base_x_scl = base_size
     base_y_scl = base_size
