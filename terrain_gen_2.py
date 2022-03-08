@@ -45,12 +45,15 @@ def triangulate_edit_object(obj_name):
     # Get a BMesh representation
     bm = bmesh.from_edit_mesh(me)
     
+    total_faces = 0
     for f in bm.faces:
         for v in f.verts:
             if (v.co.z != 0):
                 bmesh.ops.triangulate(bm, faces=bm.faces[(f.index):(f.index+1)])
+                total_faces += 1
                 break
     
+    print("Total faces triangulated:", total_faces)
     # Show the updates in the viewport
     # and recalculate n-gon tessellation.
     bmesh.update_edit_mesh(me, True)
@@ -163,14 +166,18 @@ def create_mountains(object_name, vertex_array, mt_level, size, count, z_min, z_
         return
     
 #    print("Available ids:", available_ids)
-        
-    i = 0
-    while(i < count):
-        skip_flag = 0
-        vertex_id = available_ids[randint(0, len(available_ids)-1)]
-        print(vertex_id)
-        
-        available_ids.remove(vertex_id)
+    # First, can generate central locations for each mountain:
+    # This can also be the place any specific groupings are determined,
+    # i.e. valleys, 1 large mountain, smaller peaks;
+    vertex_ids = []*count
+    for id in range(count):
+        temp_id = available_ids[randint(0, len(available_ids)-1)]
+        vertex_ids.append(temp_id)
+        available_ids.remove(temp_id)
+
+    for i in range(count):
+        vertex_id = vertex_ids[i]
+        print("Starting", vertex_id)
         
         z_scl = randint(z_min, z_max)
         vertex_heights_base = list(range(0,mt_level+1))
@@ -266,11 +273,24 @@ def create_mountains(object_name, vertex_array, mt_level, size, count, z_min, z_
 
                 adjust_vertex_height(obj, vertex_array, vertex_to_update, vertex_heights_to_update)
             # print(vertex_updated)
-                    
-        i += 1
+
     
 #    print(available_ids)
     
+def add_camera(camera_name, loc_vec, rot_rad_vec):
+    print("Adding camera", camera_name, "; loc =", loc_vec, "rot =", rot_rad_vec)
+    scn = bpy.context.scene
+
+    # create the first camera
+    cam = bpy.data.cameras.new(camera_name)
+    cam.lens = 18
+
+    # create the first camera object
+    cam_obj = bpy.data.objects.new(camera_name, cam)
+    cam_obj.location = (loc_vec[0], loc_vec[1], loc_vec[2])
+    cam_obj.rotation_euler = (radians(rot_rad_vec[0]), radians(rot_rad_vec[1]), radians(rot_rad_vec[2]))
+    scn.collection.objects.link(cam_obj)
+
 def select_all_meshes():
     for obj in C.scene.objects:
         if obj.type == "MESH":
@@ -284,24 +304,39 @@ def remove_all_meshes():
             
 
 def main():
-    print("\n\n\n\n\n\n\nGenerating Terrain...")
+    print("\n\n\n\n\nGenerating Terrain...")
     
-    O.object.mode_set(mode='OBJECT', toggle=False)
+    try:
+        O.object.mode_set(mode='OBJECT', toggle=False)
+    except:
+        pass
+
     remove_all_meshes()
         
     # create base
-    base_size = 14 # 2 is min size
+    base_size = 25 # 2 is min size
     z_min = 6
     z_max = 7
-    count = 1
-    mountain_level = 6
-    
+    count = 4
+    mountain_level = 7
     base_x_scl = base_size
     base_y_scl = base_size
+    
+    cam1_loc = [base_x_scl,-base_y_scl,mountain_level*4.2]
+    cam1_rot = [40,0,45]
+    cam1_name = "Camera 1"
+
+    try:
+        bpy.data.objects[cam1_name].select_set(True)
+        bpy.ops.object.delete() 
+    except:
+        pass
+
+    add_camera("Camera 1", cam1_loc, cam1_rot)
+        
 #    create_cube("Base", 0, 0, -0.1, base_x_scl, base_y_scl, 0.1)
     create_plane("Base", 0, 0, 0, base_x_scl, base_y_scl)
     subdivide_plane("Base", base_size-1)
-
     
     vertex_array = [0] * (base_size + 1) * (base_size + 1)
     
@@ -309,13 +344,24 @@ def main():
 #    print(vertex_array)
     O.object.mode_set(mode = 'EDIT') 
 
+    print("Triangulating...")
     triangulate_edit_object("Base")
-#    
+
+    print("Done.")
+    O.object.mode_set(mode = 'OBJECT') 
+
+    for area in bpy.context.screen.areas:
+        if area.type == 'VIEW_3D':
+            bpy.context.scene.camera = bpy.context.scene.objects[cam1_name]
+            area.spaces[0].region_3d.view_perspective = 'CAMERA'
+
+            break
+        
     # for a in C.screen.areas:
     #     if a.type == 'VIEW_3D':
     #         overlay = a.spaces.active.overlay
     #         overlay.show_extra_indices = True
-    # O.object.mode_set(mode = 'EDIT') 
+    # O.object.mode_set(mode = 'EDIT')  
     # O.mesh.select_mode(type="VERT")
     # O.mesh.select_all(action = 'SELECT')
 #    
