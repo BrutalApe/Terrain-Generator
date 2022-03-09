@@ -32,6 +32,9 @@ def create_plane(name, x_loc, y_loc, z_loc, x_scl, y_scl):
     for obj in C.selected_objects:
         if (obj.type == "MESH") and (obj.name == "Plane"):
             obj.name = name
+            break
+
+    return obj
 
 def triangulate_edit_object(obj_name):
     for obj in C.scene.objects:
@@ -101,13 +104,16 @@ def adjust_vertex_height(obj, vertex_array, vertex_ids, new_heights):
     #     value_mod = new_height+1
     #     while(value_mod > new_height):
     #         value_mod = (round(((randint(0,10)-5)*0.25),3))
-            
-        select_vertex(obj, v)
-        O.object.mode_set(mode="EDIT")
-        O.transform.translate(value=(0, 0, new_heights[h_idx]))
-        O.mesh.select_all(action = 'DESELECT')
-        O.object.mode_set(mode="OBJECT")
-        vertex_array[v] = new_heights[h_idx]
+        try:
+            select_vertex(obj, v)
+            O.object.mode_set(mode="EDIT")
+            O.transform.translate(value=(0, 0, new_heights[h_idx]))
+            O.mesh.select_all(action = 'DESELECT')
+            O.object.mode_set(mode="OBJECT")
+            vertex_array[v] = new_heights[h_idx]
+        except:
+            print("index height adjustment error - ",vertex_ids)
+        
         h_idx += 1
 
 def variate_num(num, var):
@@ -115,9 +121,12 @@ def variate_num(num, var):
     # print(variation)
     return round(num + variation, 3)
 
-def create_mountains(object_name, vertex_array, mt_level, size, count, z_min, z_max):
+def create_mountains(object_name, vertex_array, mt_level_range, size, count, z_range):
     print("Creating mountains...")
     
+    z_min = z_range[0]
+    z_max = z_range[1]
+
     # outer rim of ids, always determined this way, regardless of odd or even
     outermost_layer = list(range(0, size*4))
     
@@ -155,30 +164,43 @@ def create_mountains(object_name, vertex_array, mt_level, size, count, z_min, z_
     O.object.mode_set(mode = 'OBJECT')
 
     available_ids = []
-    print("mt_level", mt_level)
-    for m in range(layer_count):
-        if (m <= mt_level):
-            continue
-        available_ids.extend(layers[m])
+    # print("mt_level", mt_level)
+    # for m in range(layer_count):
+    #     if (m <= mt_level):
+    #         continue
+    #     available_ids.extend(layers[m])
     
-    if (count > len(available_ids)):
-        print("Too many hills requested, would repeat...")
-        return
+    # if (count > len(available_ids)):
+    #     print("Too many hills requested, would repeat...")
+    #     return
     
 #    print("Available ids:", available_ids)
     # First, can generate central locations for each mountain:
     # This can also be the place any specific groupings are determined,
     # i.e. valleys, 1 large mountain, smaller peaks;
     vertex_ids = []*count
+    mt_levels = []*count
+
     for id in range(count):
+        mt_levels.append(randint(mt_level_range[0], mt_level_range[1]))
+        for m in range(layer_count):
+            if (m <= mt_levels[id]):
+                continue
+            available_ids.extend(layers[m])
+    
+        if (count > len(available_ids)):
+            print("Too many hills requested, would repeat...")
+            return
+
         temp_id = available_ids[randint(0, len(available_ids)-1)]
         vertex_ids.append(temp_id)
         available_ids.remove(temp_id)
 
     for i in range(count):
         vertex_id = vertex_ids[i]
-        print("Starting", vertex_id)
-        
+        mt_level = mt_levels[i]
+        print("Starting", mt_level, "-", vertex_id)
+
         z_scl = randint(z_min, z_max)
         vertex_heights_base = list(range(0,mt_level+1))
         # vertex_heights = [round(((randint(0,10)-5)*0.1/(mt_level+1))+(1 - (n / (mt_level+1))),2) for n in vertex_heights]
@@ -290,6 +312,17 @@ def add_camera(camera_name, loc_vec, rot_rad_vec):
     cam_obj.location = (loc_vec[0], loc_vec[1], loc_vec[2])
     cam_obj.rotation_euler = (radians(rot_rad_vec[0]), radians(rot_rad_vec[1]), radians(rot_rad_vec[2]))
     scn.collection.objects.link(cam_obj)
+    return cam_obj
+
+def look_at(obj_camera, point):
+    loc_camera = obj_camera.matrix_world.to_translation()
+
+    direction = point - loc_camera
+    # point the cameras '-Z' and use its 'Y' as up
+    rot_quat = direction.to_track_quat('-Z', 'Y')
+
+    # assume we're using euler rotation
+    obj_camera.rotation_euler = rot_quat.to_euler()
 
 def select_all_meshes():
     for obj in C.scene.objects:
@@ -314,15 +347,15 @@ def main():
     remove_all_meshes()
         
     # create base
-    base_size = 25 # 2 is min size
-    z_min = 6
-    z_max = 7
-    count = 4
-    mountain_level = 7
+    base_size = 35 # 2 is min size
+    z_range = [4, 7]
+    count = 20
+    mountain_level_range = [4, 7]
     base_x_scl = base_size
     base_y_scl = base_size
     
-    cam1_loc = [base_x_scl,-base_y_scl,mountain_level*4.2]
+    # https://blender.stackexchange.com/questions/5210/pointing-the-camera-in-a-particular-direction-programmatically
+    cam1_loc = [base_x_scl,-base_y_scl,mountain_level_range[1]*4.2]
     cam1_rot = [40,0,45]
     cam1_name = "Camera 1"
 
@@ -332,15 +365,15 @@ def main():
     except:
         pass
 
-    add_camera("Camera 1", cam1_loc, cam1_rot)
+    cam1 = add_camera("Camera 1", cam1_loc, cam1_rot)
         
 #    create_cube("Base", 0, 0, -0.1, base_x_scl, base_y_scl, 0.1)
-    create_plane("Base", 0, 0, 0, base_x_scl, base_y_scl)
+    base = create_plane("Base", 0, 0, 0, base_x_scl, base_y_scl)
     subdivide_plane("Base", base_size-1)
     
     vertex_array = [0] * (base_size + 1) * (base_size + 1)
     
-    create_mountains("Base", vertex_array, mountain_level, base_size, count, z_min, z_max)
+    create_mountains("Base", vertex_array, mountain_level_range, base_size, count, z_range)
 #    print(vertex_array)
     O.object.mode_set(mode = 'EDIT') 
 
@@ -349,6 +382,8 @@ def main():
 
     print("Done.")
     O.object.mode_set(mode = 'OBJECT') 
+
+    look_at(cam1, base.matrix_world.to_translation())
 
     for area in bpy.context.screen.areas:
         if area.type == 'VIEW_3D':
