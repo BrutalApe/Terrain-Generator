@@ -187,14 +187,17 @@ def create_mountains(object_name, vertex_array, mt_level_range, size, count, z_r
             if (m <= mt_levels[id]):
                 continue
             available_ids.extend(layers[m])
-    
+
         if (count > len(available_ids)):
             print("Too many hills requested, would repeat...")
             return
 
         temp_id = available_ids[randint(0, len(available_ids)-1)]
+        while (temp_id in vertex_ids):
+            temp_id = available_ids[randint(0, len(available_ids)-1)]
+        
+        available_ids = [] # reset available ids
         vertex_ids.append(temp_id)
-        available_ids.remove(temp_id)
 
     for i in range(count):
         vertex_id = vertex_ids[i]
@@ -385,12 +388,12 @@ def main():
 
     look_at(cam1, base.matrix_world.to_translation())
 
-    for area in bpy.context.screen.areas:
-        if area.type == 'VIEW_3D':
-            bpy.context.scene.camera = bpy.context.scene.objects[cam1_name]
-            area.spaces[0].region_3d.view_perspective = 'CAMERA'
+    # for area in bpy.context.screen.areas:
+    #     if area.type == 'VIEW_3D':
+    #         bpy.context.scene.camera = bpy.context.scene.objects[cam1_name]
+    #         area.spaces[0].region_3d.view_perspective = 'CAMERA'
 
-            break
+    #         break
         
     # for a in C.screen.areas:
     #     if a.type == 'VIEW_3D':
