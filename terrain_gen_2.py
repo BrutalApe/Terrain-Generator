@@ -202,7 +202,7 @@ def create_mountains(object_name, vertex_array, mt_level_range, size, count, z_r
     for i in range(count):
         vertex_id = vertex_ids[i]
         mt_level = mt_levels[i]
-        print("Starting", mt_level, "-", vertex_id)
+        print(mt_level, "-", vertex_id)
 
         z_scl = randint(z_min, z_max)
         vertex_heights_base = list(range(0,mt_level+1))
@@ -228,7 +228,9 @@ def create_mountains(object_name, vertex_array, mt_level_range, size, count, z_r
         vertex_heights_to_update = [variate_num(vertex_heights_base[0], 0.4)]
         vertex_updated = []        
         v_adj = size-1
+        print("Layer count: ", end="")
         for l in range(mt_level+1):
+            vertices_in_layer_updated = 0
             # print("vtu", vertex_to_update)
 #            print(vertex_heights_to_update)
             adjust_vertex_height(obj, vertex_array, vertex_to_update, vertex_heights_to_update)
@@ -242,15 +244,20 @@ def create_mountains(object_name, vertex_array, mt_level_range, size, count, z_r
                 if (v+v_adj not in vertex_updated) and (v+v_adj not in vertex_to_update) and (randint(1,100) <= existence_prob[l]):
                     vertex_to_update.append(v+v_adj)
                     vertex_heights_to_update.append(variate_num(vertex_heights_base[l+1], 0.4))
+                    vertices_in_layer_updated += 1
                 if (v-v_adj not in vertex_updated) and (v-v_adj not in vertex_to_update) and (randint(1,100) <= existence_prob[l]):
                     vertex_to_update.append(v-v_adj)
                     vertex_heights_to_update.append(variate_num(vertex_heights_base[l+1], 0.4))
+                    vertices_in_layer_updated += 1
                 if (v+1 not in vertex_updated) and (v+1 not in vertex_to_update) and (randint(1,100) <= existence_prob[l]):
                     vertex_to_update.append(v+1)
                     vertex_heights_to_update.append(variate_num(vertex_heights_base[l+1], 0.4))
+                    vertices_in_layer_updated += 1
                 if (v-1 not in vertex_updated) and (v-1 not in vertex_to_update) and (randint(1,100) <= existence_prob[l]):
                     vertex_to_update.append(v-1)
                     vertex_heights_to_update.append(variate_num(vertex_heights_base[l+1], 0.4))
+                    vertices_in_layer_updated += 1
+            print(vertices_in_layer_updated, end="-")
         
         # now, extra layers (existence of each vertex random):
         v_corners = [mt_level, -mt_level, ((size-1)*(mt_level)), -((size-1)*(mt_level))]
@@ -264,7 +271,9 @@ def create_mountains(object_name, vertex_array, mt_level_range, size, count, z_r
         # print(extra_vertex_heights_base)
         
         outer_ring = []
+        print("\n\rExtra Layer count: ", end="")
         for e in range(extra_layers):
+            vertices_in_extra_layer_updated = 0
             # print(e)
             outer_ring[:] = []
 
@@ -285,23 +294,38 @@ def create_mountains(object_name, vertex_array, mt_level_range, size, count, z_r
                 if (v+v_adj not in vertex_updated) and (randint(1,100) <= existence_prob[e+mt_level]):
                     vertex_to_update.append(v+v_adj)
                     vertex_heights_to_update.append(variate_num(extra_vertex_heights_base[e], 0.2))
+                    vertices_in_extra_layer_updated += 1
                 if (v-v_adj not in vertex_updated) and (randint(1,100) <= existence_prob[e+mt_level]):
                     vertex_to_update.append(v-v_adj)
                     vertex_heights_to_update.append(variate_num(extra_vertex_heights_base[e], 0.2))
+                    vertices_in_extra_layer_updated += 1
                 if (v+1 not in vertex_updated) and (randint(1,100) <= existence_prob[e+mt_level]):
                     vertex_to_update.append(v+1)
                     vertex_heights_to_update.append(variate_num(extra_vertex_heights_base[e], 0.2))
+                    vertices_in_extra_layer_updated += 1
                 if (v-1 not in vertex_updated) and (randint(1,100) <= existence_prob[e+mt_level]):
                     vertex_to_update.append(v-1)
                     vertex_heights_to_update.append(variate_num(extra_vertex_heights_base[e], 0.2))
+                    vertices_in_extra_layer_updated += 1
                 vertex_updated.extend(vertex_to_update)
 
                 adjust_vertex_height(obj, vertex_array, vertex_to_update, vertex_heights_to_update)
+            print(vertices_in_extra_layer_updated, end="-")
             # print(vertex_updated)
-
+        print("\n\r")
     
 #    print(available_ids)
-    
+
+def add_modifier(obj, mod_type):
+    O.object.mode_set(mode="OBJECT") 
+   
+    obj.select_set(True)
+    # O.object.modifier_add(type=mod_type)
+    mod = obj.modifiers.new(mod_type, type=mod_type)
+    # Apply modifier
+    O.object.modifier_apply()
+    return mod
+
 def add_camera(camera_name, loc_vec, rot_rad_vec):
     print("Adding camera", camera_name, "; loc =", loc_vec, "rot =", rot_rad_vec)
     scn = bpy.context.scene
@@ -350,10 +374,10 @@ def main():
     remove_all_meshes()
         
     # create base
-    base_size = 35 # 2 is min size
-    z_range = [4, 7]
+    base_size = 50 # 2 is min size
+    z_range = [5, 10]
     count = 20
-    mountain_level_range = [4, 7]
+    mountain_level_range = [6, 10]
     base_x_scl = base_size
     base_y_scl = base_size
     
@@ -375,15 +399,28 @@ def main():
     subdivide_plane("Base", base_size-1)
     
     vertex_array = [0] * (base_size + 1) * (base_size + 1)
-    
+    temp_array = []
+
     create_mountains("Base", vertex_array, mountain_level_range, base_size, count, z_range)
-#    print(vertex_array)
+    # print(vertex_array)
+    v_group = C.object.vertex_groups.new( name = 'MTN_GROUP' )
+    for vi in range(len(vertex_array)):
+        if vertex_array[vi] != 0:
+            temp_array.append(vi)
+    
+    # print(temp_array)
+    v_group.add(temp_array, 1, 'ADD')
+
     O.object.mode_set(mode = 'EDIT') 
 
     print("Triangulating...")
     triangulate_edit_object("Base")
 
     print("Done.")
+
+    smooth_mod = add_modifier(base, 'SMOOTH')
+    smooth_mod.iterations = 10
+
     O.object.mode_set(mode = 'OBJECT') 
 
     look_at(cam1, base.matrix_world.to_translation())
