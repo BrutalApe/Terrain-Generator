@@ -15,6 +15,12 @@ from math import *
 from random import randint
 from time import sleep
 
+def update_viewport():
+    # Technically this is not a good thing to do,
+    # but for testing it's fine. Remove in the future.
+    O.wm.redraw_timer(type='DRAW_WIN_SWAP', iterations=1)
+
+
 def create_cube(name, x_loc, y_loc, z_loc, x_scl, y_scl, z_scl):
     print("Creating cube...")
     O.mesh.primitive_cube_add(location=(x_loc,y_loc,z_loc))
@@ -121,6 +127,121 @@ def variate_num(num, var):
     # print(variation)
     return round(num + variation, 3)
 
+def create_mountain(obj, vertex_array, z_min, z_max, size, vertex_ids, mt_levels, i):
+    vertex_id = vertex_ids[i]
+    mt_level = mt_levels[i]
+    print(mt_level, "-", vertex_id)
+
+    z_scl = randint(z_min, z_max)
+    vertex_heights_base = list(range(0,mt_level+1))
+    # vertex_heights = [round(((randint(0,10)-5)*0.1/(mt_level+1))+(1 - (n / (mt_level+1))),2) for n in vertex_heights]
+    vertex_heights_base = [round((1 - (n / (mt_level+1))),2) for n in vertex_heights_base]
+    # print(vertex_heights_base)
+    # print("v heights:", vertex_heights)
+    temp_height = round((mt_level+1)*0.1*z_scl,3)
+    for h in range(mt_level+1):
+        vertex_heights_base[h] = round(vertex_heights_base[h]*temp_height,3)
+    # print(vertex_heights_base)
+    
+    extra_layers = (mt_level+2)//3
+    existence_prob = [100]*(mt_level+extra_layers)
+
+    for el in range(mt_level+extra_layers):
+        if (el < mt_level):
+            existence_prob[el] = (existence_prob[el]-(5*el))
+        else:
+            existence_prob[el] = (existence_prob[el]/(el-mt_level+2))
+
+    vertex_to_update = [vertex_id]
+    vertex_heights_to_update = [variate_num(vertex_heights_base[0], 0.4)]
+    vertex_updated = []        
+    v_adj = size-1
+    print("Layer count: ", end="")
+    for l in range(mt_level+1):
+        vertices_in_layer_updated = 0
+        # print("vtu", vertex_to_update)
+        # print(vertex_heights_to_update)
+        adjust_vertex_height(obj, vertex_array, vertex_to_update, vertex_heights_to_update)
+        vertex_updated.extend(vertex_to_update)
+        if (l == mt_level):
+            break
+        vertex_to_update[:] = []
+        vertex_heights_to_update[:] = []
+        for vi in range(len(vertex_updated)):
+            v = vertex_updated[vi]
+            if (v+v_adj not in vertex_updated) and (v+v_adj not in vertex_to_update) and (randint(1,100) <= existence_prob[l]):
+                vertex_to_update.append(v+v_adj)
+                vertex_heights_to_update.append(variate_num(vertex_heights_base[l+1], 0.4))
+                vertices_in_layer_updated += 1
+            if (v-v_adj not in vertex_updated) and (v-v_adj not in vertex_to_update) and (randint(1,100) <= existence_prob[l]):
+                vertex_to_update.append(v-v_adj)
+                vertex_heights_to_update.append(variate_num(vertex_heights_base[l+1], 0.4))
+                vertices_in_layer_updated += 1
+            if (v+1 not in vertex_updated) and (v+1 not in vertex_to_update) and (randint(1,100) <= existence_prob[l]):
+                vertex_to_update.append(v+1)
+                vertex_heights_to_update.append(variate_num(vertex_heights_base[l+1], 0.4))
+                vertices_in_layer_updated += 1
+            if (v-1 not in vertex_updated) and (v-1 not in vertex_to_update) and (randint(1,100) <= existence_prob[l]):
+                vertex_to_update.append(v-1)
+                vertex_heights_to_update.append(variate_num(vertex_heights_base[l+1], 0.4))
+                vertices_in_layer_updated += 1
+        print(vertices_in_layer_updated, end="-")
+    
+    # now, extra layers (existence of each vertex random):
+    v_corners = [mt_level, -mt_level, ((size-1)*(mt_level)), -((size-1)*(mt_level))]
+    v_corners = [(vertex_id + v) for v in v_corners]
+
+    extra_vertex_heights_base = list(range(0,extra_layers))
+    extra_vertex_heights_base = [round(((extra_layers/(extra_layers+1)) - (n / extra_layers)),2) for n in extra_vertex_heights_base]
+    for h in range(extra_layers):
+        extra_vertex_heights_base[h] = round(extra_vertex_heights_base[h]*vertex_heights_base[mt_level],3)
+        existence_prob[h+mt_level] = (100/(h+2))
+    # print(extra_vertex_heights_base)
+    
+    outer_ring = []
+    print("\n\rExtra Layer count: ", end="")
+    for e in range(extra_layers):
+        vertices_in_extra_layer_updated = 0
+        # print(e)
+        outer_ring[:] = []
+
+        for o in range(1,mt_level-e):
+            # print(o)
+            outer_ring.append(vertex_id + ((e+o)*v_adj) + (mt_level-o))
+            outer_ring.append(vertex_id + ((e+o)*v_adj) - (mt_level-o))
+            outer_ring.append(vertex_id - ((e+o)*v_adj) + (mt_level-o))
+            outer_ring.append(vertex_id - ((e+o)*v_adj) - (mt_level-o))
+        # print(outer_ring)
+
+        for o in range(len(outer_ring)):
+            # select_vertex(obj, outer_ring[o])
+            v = outer_ring[o]
+            # print(v)
+            vertex_to_update[:] = []
+            vertex_heights_to_update[:] = []
+            if (v+v_adj not in vertex_updated) and (randint(1,100) <= existence_prob[e+mt_level]):
+                vertex_to_update.append(v+v_adj)
+                vertex_heights_to_update.append(variate_num(extra_vertex_heights_base[e], 0.2))
+                vertices_in_extra_layer_updated += 1
+            if (v-v_adj not in vertex_updated) and (randint(1,100) <= existence_prob[e+mt_level]):
+                vertex_to_update.append(v-v_adj)
+                vertex_heights_to_update.append(variate_num(extra_vertex_heights_base[e], 0.2))
+                vertices_in_extra_layer_updated += 1
+            if (v+1 not in vertex_updated) and (randint(1,100) <= existence_prob[e+mt_level]):
+                vertex_to_update.append(v+1)
+                vertex_heights_to_update.append(variate_num(extra_vertex_heights_base[e], 0.2))
+                vertices_in_extra_layer_updated += 1
+            if (v-1 not in vertex_updated) and (randint(1,100) <= existence_prob[e+mt_level]):
+                vertex_to_update.append(v-1)
+                vertex_heights_to_update.append(variate_num(extra_vertex_heights_base[e], 0.2))
+                vertices_in_extra_layer_updated += 1
+            vertex_updated.extend(vertex_to_update)
+
+            adjust_vertex_height(obj, vertex_array, vertex_to_update, vertex_heights_to_update)
+        print(vertices_in_extra_layer_updated, end="-")
+        # print(vertex_updated)
+    print("\n\r")
+
 def create_mountains(object_name, vertex_array, mt_level_range, size, count, z_range):
     print("Creating mountains...")
     
@@ -200,119 +321,9 @@ def create_mountains(object_name, vertex_array, mt_level_range, size, count, z_r
         vertex_ids.append(temp_id)
 
     for i in range(count):
-        vertex_id = vertex_ids[i]
-        mt_level = mt_levels[i]
-        print(mt_level, "-", vertex_id)
+        create_mountain(obj, vertex_array, z_min, z_max, size, vertex_ids, mt_levels, i)
+        update_viewport()
 
-        z_scl = randint(z_min, z_max)
-        vertex_heights_base = list(range(0,mt_level+1))
-        # vertex_heights = [round(((randint(0,10)-5)*0.1/(mt_level+1))+(1 - (n / (mt_level+1))),2) for n in vertex_heights]
-        vertex_heights_base = [round((1 - (n / (mt_level+1))),2) for n in vertex_heights_base]
-        # print(vertex_heights_base)
-#        print("v heights:", vertex_heights)
-        temp_height = round((mt_level+1)*0.1*z_scl,3)
-        for h in range(mt_level+1):
-            vertex_heights_base[h] = round(vertex_heights_base[h]*temp_height,3)
-        # print(vertex_heights_base)
-        
-        extra_layers = (mt_level+2)//3
-        existence_prob = [100]*(mt_level+extra_layers)
-
-        for el in range(mt_level+extra_layers):
-            if (el < mt_level):
-                existence_prob[el] = (existence_prob[el]-(5*el))
-            else:
-                existence_prob[el] = (existence_prob[el]/(el-mt_level+2))
-
-        vertex_to_update = [vertex_id]
-        vertex_heights_to_update = [variate_num(vertex_heights_base[0], 0.4)]
-        vertex_updated = []        
-        v_adj = size-1
-        print("Layer count: ", end="")
-        for l in range(mt_level+1):
-            vertices_in_layer_updated = 0
-            # print("vtu", vertex_to_update)
-#            print(vertex_heights_to_update)
-            adjust_vertex_height(obj, vertex_array, vertex_to_update, vertex_heights_to_update)
-            vertex_updated.extend(vertex_to_update)
-            if (l == mt_level):
-                break
-            vertex_to_update[:] = []
-            vertex_heights_to_update[:] = []
-            for vi in range(len(vertex_updated)):
-                v = vertex_updated[vi]
-                if (v+v_adj not in vertex_updated) and (v+v_adj not in vertex_to_update) and (randint(1,100) <= existence_prob[l]):
-                    vertex_to_update.append(v+v_adj)
-                    vertex_heights_to_update.append(variate_num(vertex_heights_base[l+1], 0.4))
-                    vertices_in_layer_updated += 1
-                if (v-v_adj not in vertex_updated) and (v-v_adj not in vertex_to_update) and (randint(1,100) <= existence_prob[l]):
-                    vertex_to_update.append(v-v_adj)
-                    vertex_heights_to_update.append(variate_num(vertex_heights_base[l+1], 0.4))
-                    vertices_in_layer_updated += 1
-                if (v+1 not in vertex_updated) and (v+1 not in vertex_to_update) and (randint(1,100) <= existence_prob[l]):
-                    vertex_to_update.append(v+1)
-                    vertex_heights_to_update.append(variate_num(vertex_heights_base[l+1], 0.4))
-                    vertices_in_layer_updated += 1
-                if (v-1 not in vertex_updated) and (v-1 not in vertex_to_update) and (randint(1,100) <= existence_prob[l]):
-                    vertex_to_update.append(v-1)
-                    vertex_heights_to_update.append(variate_num(vertex_heights_base[l+1], 0.4))
-                    vertices_in_layer_updated += 1
-            print(vertices_in_layer_updated, end="-")
-        
-        # now, extra layers (existence of each vertex random):
-        v_corners = [mt_level, -mt_level, ((size-1)*(mt_level)), -((size-1)*(mt_level))]
-        v_corners = [(vertex_id + v) for v in v_corners]
-
-        extra_vertex_heights_base = list(range(0,extra_layers))
-        extra_vertex_heights_base = [round(((extra_layers/(extra_layers+1)) - (n / extra_layers)),2) for n in extra_vertex_heights_base]
-        for h in range(extra_layers):
-            extra_vertex_heights_base[h] = round(extra_vertex_heights_base[h]*vertex_heights_base[mt_level],3)
-            existence_prob[h+mt_level] = (100/(h+2))
-        # print(extra_vertex_heights_base)
-        
-        outer_ring = []
-        print("\n\rExtra Layer count: ", end="")
-        for e in range(extra_layers):
-            vertices_in_extra_layer_updated = 0
-            # print(e)
-            outer_ring[:] = []
-
-            for o in range(1,mt_level-e):
-                # print(o)
-                outer_ring.append(vertex_id + ((e+o)*v_adj) + (mt_level-o))
-                outer_ring.append(vertex_id + ((e+o)*v_adj) - (mt_level-o))
-                outer_ring.append(vertex_id - ((e+o)*v_adj) + (mt_level-o))
-                outer_ring.append(vertex_id - ((e+o)*v_adj) - (mt_level-o))
-            # print(outer_ring)
-
-            for o in range(len(outer_ring)):
-                # select_vertex(obj, outer_ring[o])
-                v = outer_ring[o]
-                # print(v)
-                vertex_to_update[:] = []
-                vertex_heights_to_update[:] = []
-                if (v+v_adj not in vertex_updated) and (randint(1,100) <= existence_prob[e+mt_level]):
-                    vertex_to_update.append(v+v_adj)
-                    vertex_heights_to_update.append(variate_num(extra_vertex_heights_base[e], 0.2))
-                    vertices_in_extra_layer_updated += 1
-                if (v-v_adj not in vertex_updated) and (randint(1,100) <= existence_prob[e+mt_level]):
-                    vertex_to_update.append(v-v_adj)
-                    vertex_heights_to_update.append(variate_num(extra_vertex_heights_base[e], 0.2))
-                    vertices_in_extra_layer_updated += 1
-                if (v+1 not in vertex_updated) and (randint(1,100) <= existence_prob[e+mt_level]):
-                    vertex_to_update.append(v+1)
-                    vertex_heights_to_update.append(variate_num(extra_vertex_heights_base[e], 0.2))
-                    vertices_in_extra_layer_updated += 1
-                if (v-1 not in vertex_updated) and (randint(1,100) <= existence_prob[e+mt_level]):
-                    vertex_to_update.append(v-1)
-                    vertex_heights_to_update.append(variate_num(extra_vertex_heights_base[e], 0.2))
-                    vertices_in_extra_layer_updated += 1
-                vertex_updated.extend(vertex_to_update)
-
-                adjust_vertex_height(obj, vertex_array, vertex_to_update, vertex_heights_to_update)
-            print(vertices_in_extra_layer_updated, end="-")
-            # print(vertex_updated)
-        print("\n\r")
     
 #    print(available_ids)
 
@@ -361,11 +372,13 @@ def remove_all_meshes():
     select_all_meshes()
     
     O.object.delete()
-            
+
+import bpy
+import random
 
 def main():
     print("\n\n\n\n\nGenerating Terrain...")
-    
+ 
     try:
         O.object.mode_set(mode='OBJECT', toggle=False)
     except:
@@ -415,13 +428,17 @@ def main():
 
     print("Triangulating...")
     triangulate_edit_object("Base")
-
+    update_viewport()
     print("Done.")
 
+    print("Smoothing...")
     smooth_mod = add_modifier(base, 'SMOOTH')
+    smooth_mod.vertex_group = v_group.name
     smooth_mod.iterations = 10
 
     O.object.mode_set(mode = 'OBJECT') 
+    update_viewport()
+    print("Done.")
 
     look_at(cam1, base.matrix_world.to_translation())
 
@@ -442,5 +459,9 @@ def main():
 #    
     
 if __name__ == "__main__":
+    # register()
+
+    # # test call
+    # bpy.ops.wm.modal_timer_operator()  
     main()
 
