@@ -416,11 +416,12 @@ def main():
 
     create_mountains("Base", vertex_array, mountain_level_range, base_size, count, z_range)
     # print(vertex_array)
+
     v_group = C.object.vertex_groups.new( name = 'MTN_GROUP' )
-    for vi in range(len(vertex_array)):
-        if vertex_array[vi] != 0:
-            temp_array.append(vi)
     
+    # Select all but outer edge for v_group to be smoothed
+    temp_array = [vi for vi in range(len(vertex_array)) if vi >= base_size*4]
+
     # print(temp_array)
     v_group.add(temp_array, 1, 'ADD')
 
@@ -441,6 +442,9 @@ def main():
     print("Done.")
 
     look_at(cam1, base.matrix_world.to_translation())
+
+    O.object.mode_set(mode = 'EDIT')
+    O.object.vertex_group_select()
 
     # for area in bpy.context.screen.areas:
     #     if area.type == 'VIEW_3D':
