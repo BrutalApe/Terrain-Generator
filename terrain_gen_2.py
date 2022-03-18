@@ -454,7 +454,7 @@ def main():
     for f in bm.faces:
         face_v_count = 0
         for v in f.verts:
-            if (v.co.z == 0):
+            if (v.co.z == 0) and (v.index >= base_size*4):
                 face_v_count += 1
         if face_v_count == 4:
             for v in f.verts:
