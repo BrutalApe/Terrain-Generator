@@ -373,9 +373,6 @@ def remove_all_meshes():
     
     O.object.delete()
 
-import bpy
-import random
-
 def main():
     print("\n\n\n\n\nGenerating Terrain...")
  
@@ -387,13 +384,15 @@ def main():
     remove_all_meshes()
         
     # create base
-    base_size = 50 # 2 is min size
-    z_range = [5, 10]
-    count = 20
+    base_size = 40 # 2 is min size
+    z_range = [5, 8]
+    count = 10
     mountain_level_range = [6, 10]
     base_x_scl = base_size
     base_y_scl = base_size
     
+    v_adj = base_size - 1
+
     # https://blender.stackexchange.com/questions/5210/pointing-the-camera-in-a-particular-direction-programmatically
     cam1_loc = [base_x_scl,-base_y_scl,mountain_level_range[1]*4.2]
     cam1_rot = [40,0,45]
@@ -412,18 +411,18 @@ def main():
     subdivide_plane("Base", base_size-1)
     
     vertex_array = [0] * (base_size + 1) * (base_size + 1)
-    temp_array = []
+    smooth_array = []
 
     create_mountains("Base", vertex_array, mountain_level_range, base_size, count, z_range)
     # print(vertex_array)
 
-    v_group = C.object.vertex_groups.new( name = 'MTN_GROUP' )
+    s_group = C.object.vertex_groups.new( name = 'SMOOTH_GROUP' )
     
     # Select all but outer edge for v_group to be smoothed
-    temp_array = [vi for vi in range(len(vertex_array)) if vi >= base_size*4]
+    smooth_array = [vi for vi in range(len(vertex_array)) if vi >= base_size*4]
 
-    # print(temp_array)
-    v_group.add(temp_array, 1, 'ADD')
+    # print(smooth_array)
+    s_group.add(smooth_array, 1, 'ADD')
 
     O.object.mode_set(mode = 'EDIT') 
 
@@ -434,7 +433,7 @@ def main():
 
     print("Smoothing...")
     smooth_mod = add_modifier(base, 'SMOOTH')
-    smooth_mod.vertex_group = v_group.name
+    smooth_mod.vertex_group = s_group.name
     smooth_mod.iterations = 10
 
     O.object.mode_set(mode = 'OBJECT') 
@@ -442,6 +441,35 @@ def main():
     print("Done.")
 
     look_at(cam1, base.matrix_world.to_translation())
+
+    # Now, select all vertices from faces who weren't triangulated
+
+    obj = bpy.context.active_object
+
+    O.object.mode_set(mode = 'EDIT') 
+    me = obj.data
+    # Get a BMesh representation
+    bm = bmesh.from_edit_mesh(me)
+    flat_array = []
+    for f in bm.faces:
+        face_v_count = 0
+        for v in f.verts:
+            if (v.co.z == 0):
+                face_v_count += 1
+        if face_v_count == 4:
+            for v in f.verts:
+                if v.index not in flat_array:
+                    # Select vertices, found a flat square face
+                    flat_array.append(v.index)
+
+    f_group = C.object.vertex_groups.new( name = 'FLAT_GROUP' )
+
+    print(flat_array)
+
+    O.object.mode_set(mode = 'OBJECT') 
+    # How to only select get vertices that would 
+    f_group.add(flat_array, 1, 'ADD')
+    # create_cube
 
     O.object.mode_set(mode = 'EDIT')
     O.object.vertex_group_select()
