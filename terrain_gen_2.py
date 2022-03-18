@@ -103,6 +103,11 @@ def select_vertex(obj, v):
     obj.data.vertices[v].select = True
     return
 
+def select_vertices(obj, v_list):
+    for v in v_list:
+        select_vertex(obj, v)
+    return
+
 def adjust_vertex_height(obj, vertex_array, vertex_ids, new_heights):
     value_mod = 0
     h_idx = 0
@@ -384,10 +389,10 @@ def main():
     remove_all_meshes()
         
     # create base
-    base_size = 40 # 2 is min size
-    z_range = [5, 8]
-    count = 10
-    mountain_level_range = [6, 10]
+    base_size = 30 # 2 is min size
+    z_range = [4, 6]
+    count = 5
+    mountain_level_range = [4, 6]
     base_x_scl = base_size
     base_y_scl = base_size
     
@@ -436,7 +441,6 @@ def main():
     smooth_mod.vertex_group = s_group.name
     smooth_mod.iterations = 10
 
-    O.object.mode_set(mode = 'OBJECT') 
     update_viewport()
     print("Done.")
 
@@ -462,17 +466,32 @@ def main():
                     # Select vertices, found a flat square face
                     flat_array.append(v.index)
 
-    f_group = C.object.vertex_groups.new( name = 'FLAT_GROUP' )
+    # f_group = C.object.vertex_groups.new( name = 'FLAT_GROUP' )
+    # O.object.mode_set(mode = 'OBJECT') 
+    # f_group.add(flat_array, 1, 'ADD')
 
-    print(flat_array)
-
-    O.object.mode_set(mode = 'OBJECT') 
-    # How to only select get vertices that would 
-    f_group.add(flat_array, 1, 'ADD')
+    # pick random location(s) for cubes (buildings)
+    b_count = 1
+    b_loc_list = []
+    b_locs = [[]]
+    rand_loc = 0
+    for bc in range(b_count):
+        b_loc_list[:] = []
+        while (True):
+            rand_loc = flat_array[randint(0,len(flat_array))]
+            if (rand_loc+1 in flat_array) and (rand_loc+v_adj in flat_array) and (rand_loc+1+v_adj in flat_array):
+                b_loc_list.extend([rand_loc, rand_loc+1, rand_loc+v_adj, rand_loc+1+v_adj])
+                break
+        b_locs.append(b_loc_list)
+    print(b_locs)
+    
+    O.object.mode_set(mode="OBJECT")
+    select_vertices(base, b_locs[1])
+    
     # create_cube
 
     O.object.mode_set(mode = 'EDIT')
-    O.object.vertex_group_select()
+    # O.object.vertex_group_select()
 
     # for area in bpy.context.screen.areas:
     #     if area.type == 'VIEW_3D':
