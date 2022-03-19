@@ -394,6 +394,49 @@ def remove_all_meshes():
     
     O.object.delete()
 
+def select_flat_vertices(obj, base_size, flat_array):
+    O.object.mode_set(mode = 'EDIT') 
+    me = obj.data
+    # Get a BMesh representation
+    bm = bmesh.from_edit_mesh(me)
+    for f in bm.faces:
+        face_v_count = 0
+        for v in f.verts:
+            if (v.co.z == 0) and (v.index >= base_size*4):
+                face_v_count += 1
+        if face_v_count == 4:
+            for v in f.verts:
+                if v.index not in flat_array:
+                    # Select vertices, found a flat square face
+                    flat_array.append(v.index)
+
+def generate_building_locations(base_size, b_count, flat_array, b_locs):
+    #don't want edges where squares could overlap;
+    # create two arrays, for each edge to avoid.
+    outer_edge_h = []
+    outer_edge_v = []
+    max_vert = (base_size+1)*(base_size+1)-1
+    v_adj = base_size - 1
+    for n in range(base_size-1):
+        outer_edge_h.append(max_vert - n)
+        outer_edge_v.append(max_vert - (n*(base_size-1)))
+
+    b_loc_list = []
+    
+    rand_loc = 0
+    for bc in range(b_count):
+        b_loc_list[:] = []
+        while (True):
+            rand_loc = flat_array[randint(0,len(flat_array)-1)]
+            if (rand_loc+1 in flat_array) and (rand_loc+v_adj in flat_array) and (rand_loc+1+v_adj in flat_array) and (rand_loc not in outer_edge_h) and (rand_loc not in outer_edge_v):
+                b_loc_list.extend([rand_loc, rand_loc+1, rand_loc+v_adj, rand_loc+1+v_adj])
+                flat_array.remove(rand_loc)
+                flat_array.remove(rand_loc+1)
+                flat_array.remove(rand_loc+v_adj)
+                flat_array.remove(rand_loc+1+v_adj)
+                break
+        b_locs[bc] = b_loc_list[:]
+
 def main():
     print("\n\n\n\n\nGenerating Terrain...")
  
@@ -413,7 +456,6 @@ def main():
     base_y_scl = base_size
     
     v_adj = base_size - 1
-    max_vert = (base_size+1)*(base_size+1)-1
 
     # https://blender.stackexchange.com/questions/5210/pointing-the-camera-in-a-particular-direction-programmatically
     cam1_loc = [base_x_scl,-base_y_scl,mountain_level_range[1]*4.2]
@@ -463,75 +505,29 @@ def main():
 
     look_at(cam1, base.matrix_world.to_translation())
 
+    print("Creating Buildings...")
     # Now, select all vertices from faces who weren't triangulated
-
-    obj = C.active_object
-
-    O.object.mode_set(mode = 'EDIT') 
-    me = obj.data
-    # Get a BMesh representation
-    bm = bmesh.from_edit_mesh(me)
     flat_array = []
-    for f in bm.faces:
-        face_v_count = 0
-        for v in f.verts:
-            if (v.co.z == 0) and (v.index >= base_size*4):
-                face_v_count += 1
-        if face_v_count == 4:
-            for v in f.verts:
-                if v.index not in flat_array:
-                    # Select vertices, found a flat square face
-                    flat_array.append(v.index)
-    
+    select_flat_vertices(base, base_size, flat_array)
+        
     O.object.mode_set(mode = 'OBJECT')
-    s_group.remove(flat_array)
+    s_group.remove(flat_array) # uninclude buildings from smoothing
 
     # f_group = C.object.vertex_groups.new( name = 'FLAT_GROUP' )
     # O.object.mode_set(mode = 'OBJECT') 
     # f_group.add(flat_array, 1, 'ADD')
 
     # pick random location(s) for cubes (buildings)
-
-    #don't want edges where squares could overlap;
-    # create two arrays, for each edge to avoid.
-    outer_edge_h = []
-    outer_edge_v = []
-    for n in range(base_size-1):
-        outer_edge_h.append(max_vert - n)
-        outer_edge_v.append(max_vert - (n*(base_size-1)))
-
     b_count = 3
-    b_loc_list = []
     b_locs = [[]] * b_count
-    rand_loc = 0
-    for bc in range(b_count):
-        b_loc_list[:] = []
-        while (True):
-            rand_loc = flat_array[randint(0,len(flat_array)-1)]
-            if (rand_loc+1 in flat_array) and (rand_loc+v_adj in flat_array) and (rand_loc+1+v_adj in flat_array) and (rand_loc not in outer_edge_h) and (rand_loc not in outer_edge_v):
-                b_loc_list.extend([rand_loc, rand_loc+1, rand_loc+v_adj, rand_loc+1+v_adj])
-                flat_array.remove(rand_loc)
-                flat_array.remove(rand_loc+1)
-                flat_array.remove(rand_loc+v_adj)
-                flat_array.remove(rand_loc+1+v_adj)
-                break
-        b_locs[bc] = b_loc_list[:]
+    generate_building_locations(base_size, b_count, flat_array, b_locs)
     
     for bc in range(b_count):
-        
         select_vertices(base, b_locs[bc])
         O.mesh.extrude_region_move(TRANSFORM_OT_translate={"value":(0, 0, 2)})
         deselect_all_vertices(base)
 
         # update_viewport()
-
-    # O.transform.translate(value=(0, 0, 2))
-        
-    # select_vertices(base, flat_array)
-    
-    # create_cube
-
-    # O.object.vertex_group_select()
 
     # for area in C.screen.areas:
     #     if area.type == 'VIEW_3D':
@@ -547,7 +543,7 @@ def main():
     # O.object.mode_set(mode = 'EDIT')  
     # O.mesh.select_mode(type="VERT")
     # O.mesh.select_all(action = 'SELECT')
-#    
+    print("Done.")
     
 if __name__ == "__main__":
     # register()
