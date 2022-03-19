@@ -47,7 +47,7 @@ def triangulate_edit_object(obj_name):
         if obj.name == obj_name:
             obj.select_set(True)
 
-    obj = bpy.context.active_object
+    obj = C.active_object
 
     O.object.mode_set(mode = 'EDIT') 
     me = obj.data
@@ -73,7 +73,7 @@ def subdivide_face(object_name, face, num_of_cuts):
         if obj.name == object_name:
             obj.select_set(True)
 
-    obj = bpy.context.active_object
+    obj = C.active_object
 
     O.object.mode_set(mode = 'EDIT') 
     O.mesh.select_mode(type="FACE")
@@ -93,14 +93,30 @@ def subdivide_plane(object_name, num_of_cuts):
         if obj.name == object_name:
             obj.select_set(True)
 
-    obj = bpy.context.active_object
+    obj = C.active_object
 
     O.object.mode_set(mode="EDIT")
     O.mesh.subdivide(number_cuts=num_of_cuts)
     O.object.mode_set(mode="OBJECT")
 
+def deselect_all_vertices(obj):
+    O.object.mode_set(mode="OBJECT")
+    v = C.object.data.vertices
+    f = C.object.data.polygons
+    e = C.object.data.edges
+    #to deselect vertices you need to deselect faces(polygons) and edges at first
+    for i in f:                   
+        i.select=False               
+    for i in e:
+        i.select=False
+    for i in v:
+        i.select=False
+    return
+
 def select_vertex(obj, v):
+    O.object.mode_set(mode="OBJECT")
     obj.data.vertices[v].select = True
+    O.object.mode_set(mode = 'EDIT')
     return
 
 def select_vertices(obj, v_list):
@@ -282,7 +298,7 @@ def create_mountains(object_name, vertex_array, mt_level_range, size, count, z_r
         if obj.name == object_name:
             obj.select_set(True)
 
-    obj = bpy.context.active_object
+    obj = C.active_object
     
     O.object.mode_set(mode = 'EDIT') 
     O.mesh.select_mode(type="VERT")
@@ -344,7 +360,7 @@ def add_modifier(obj, mod_type):
 
 def add_camera(camera_name, loc_vec, rot_rad_vec):
     print("Adding camera", camera_name, "; loc =", loc_vec, "rot =", rot_rad_vec)
-    scn = bpy.context.scene
+    scn = C.scene
 
     # create the first camera
     cam = bpy.data.cameras.new(camera_name)
@@ -389,7 +405,7 @@ def main():
     remove_all_meshes()
         
     # create base
-    base_size = 30 # 2 is min size
+    base_size = 20 # 2 is min size
     z_range = [4, 6]
     count = 5
     mountain_level_range = [4, 6]
@@ -397,6 +413,7 @@ def main():
     base_y_scl = base_size
     
     v_adj = base_size - 1
+    max_vert = (base_size+1)*(base_size+1)-1
 
     # https://blender.stackexchange.com/questions/5210/pointing-the-camera-in-a-particular-direction-programmatically
     cam1_loc = [base_x_scl,-base_y_scl,mountain_level_range[1]*4.2]
@@ -448,7 +465,7 @@ def main():
 
     # Now, select all vertices from faces who weren't triangulated
 
-    obj = bpy.context.active_object
+    obj = C.active_object
 
     O.object.mode_set(mode = 'EDIT') 
     me = obj.data
@@ -465,37 +482,60 @@ def main():
                 if v.index not in flat_array:
                     # Select vertices, found a flat square face
                     flat_array.append(v.index)
+    
+    O.object.mode_set(mode = 'OBJECT')
+    s_group.remove(flat_array)
 
     # f_group = C.object.vertex_groups.new( name = 'FLAT_GROUP' )
     # O.object.mode_set(mode = 'OBJECT') 
     # f_group.add(flat_array, 1, 'ADD')
 
     # pick random location(s) for cubes (buildings)
-    b_count = 1
+
+    #don't want edges where squares could overlap;
+    # create two arrays, for each edge to avoid.
+    outer_edge_h = []
+    outer_edge_v = []
+    for n in range(base_size-1):
+        outer_edge_h.append(max_vert - n)
+        outer_edge_v.append(max_vert - (n*(base_size-1)))
+
+    b_count = 3
     b_loc_list = []
-    b_locs = [[]]
+    b_locs = [[]] * b_count
     rand_loc = 0
     for bc in range(b_count):
         b_loc_list[:] = []
         while (True):
-            rand_loc = flat_array[randint(0,len(flat_array))]
-            if (rand_loc+1 in flat_array) and (rand_loc+v_adj in flat_array) and (rand_loc+1+v_adj in flat_array):
+            rand_loc = flat_array[randint(0,len(flat_array)-1)]
+            if (rand_loc+1 in flat_array) and (rand_loc+v_adj in flat_array) and (rand_loc+1+v_adj in flat_array) and (rand_loc not in outer_edge_h) and (rand_loc not in outer_edge_v):
                 b_loc_list.extend([rand_loc, rand_loc+1, rand_loc+v_adj, rand_loc+1+v_adj])
+                flat_array.remove(rand_loc)
+                flat_array.remove(rand_loc+1)
+                flat_array.remove(rand_loc+v_adj)
+                flat_array.remove(rand_loc+1+v_adj)
                 break
-        b_locs.append(b_loc_list)
-    print(b_locs)
+        b_locs[bc] = b_loc_list[:]
     
-    O.object.mode_set(mode="OBJECT")
-    select_vertices(base, b_locs[1])
+    for bc in range(b_count):
+        
+        select_vertices(base, b_locs[bc])
+        O.mesh.extrude_region_move(TRANSFORM_OT_translate={"value":(0, 0, 2)})
+        deselect_all_vertices(base)
+
+        # update_viewport()
+
+    # O.transform.translate(value=(0, 0, 2))
+        
+    # select_vertices(base, flat_array)
     
     # create_cube
 
-    O.object.mode_set(mode = 'EDIT')
     # O.object.vertex_group_select()
 
-    # for area in bpy.context.screen.areas:
+    # for area in C.screen.areas:
     #     if area.type == 'VIEW_3D':
-    #         bpy.context.scene.camera = bpy.context.scene.objects[cam1_name]
+    #         C.scene.camera = C.scene.objects[cam1_name]
     #         area.spaces[0].region_3d.view_perspective = 'CAMERA'
 
     #         break
