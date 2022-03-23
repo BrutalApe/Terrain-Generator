@@ -15,12 +15,20 @@ from math import *
 from random import randint
 from time import sleep
 
+# Updates viewport while running code
 def update_viewport():
     # Technically this is not a good thing to do,
     # but for testing it's fine. Remove in the future.
-    O.wm.redraw_timer(type='DRAW_WIN_SWAP', iterations=1)
+    # O.wm.redraw_timer(type='DRAW_WIN_SWAP', iterations=1)
+    return
 
-
+# Creates a cube using given parameters
+# Params:
+#   name - name of cube
+#   x,y,z_loc - location of cube
+#   x,y,z_scl - scale of cube
+# Return:
+#   Nothing 
 def create_cube(name, x_loc, y_loc, z_loc, x_scl, y_scl, z_scl):
     print("Creating cube...")
     O.mesh.primitive_cube_add(location=(x_loc,y_loc,z_loc))
@@ -30,6 +38,13 @@ def create_cube(name, x_loc, y_loc, z_loc, x_scl, y_scl, z_scl):
         if (obj.type == "MESH") and (obj.name == "Cube"):
             obj.name = name
 
+# Creates a plane using given parameters
+# Params:
+#   name - name of plane
+#   x,y,z_loc - location of plane
+#   x,y_scl - scale of plane
+# Return:
+#   Nothing 
 def create_plane(name, x_loc, y_loc, z_loc, x_scl, y_scl):
     print("Creating plane...")
     O.mesh.primitive_plane_add(location=(x_loc,y_loc,z_loc))
@@ -42,6 +57,11 @@ def create_plane(name, x_loc, y_loc, z_loc, x_scl, y_scl):
 
     return obj
 
+# Triangulate-subdivides all faces with vertices of height != 0
+# Params:
+#   obj_name - mesh to modify
+# Return:
+#   Nothing 
 def triangulate_edit_object(obj_name):
     for obj in C.scene.objects:
         if obj.name == obj_name:
@@ -67,6 +87,13 @@ def triangulate_edit_object(obj_name):
     # and recalculate n-gon tessellation.
     bmesh.update_edit_mesh(me, True)
 
+# Subdivides a specific face
+# Params:
+#   object_name - name of object to be subdivided
+#   face - index of face to be subdivided
+#   num_of_cuts - how many times to subdivide
+# Return:
+#   Nothing 
 def subdivide_face(object_name, face, num_of_cuts):
     print("Subdividing face...")
     for obj in C.scene.objects:
@@ -87,6 +114,12 @@ def subdivide_face(object_name, face, num_of_cuts):
     O.mesh.subdivide(number_cuts=num_of_cuts)
     O.object.mode_set(mode="OBJECT")
     
+# Subdivides a plane
+# Params:
+#   object_name - name of object to be subdivided
+#   num_of_cuts - how many times to subdivide
+# Return:
+#   Nothing 
 def subdivide_plane(object_name, num_of_cuts):
     print("Subdividing plane...")
     for obj in C.scene.objects:
@@ -99,6 +132,11 @@ def subdivide_plane(object_name, num_of_cuts):
     O.mesh.subdivide(number_cuts=num_of_cuts)
     O.object.mode_set(mode="OBJECT")
 
+# Deselects all vertices of mesh
+# Params:
+#   obj - name of object whose vertices should be deselected
+# Return:
+#   Nothing
 def deselect_all_vertices(obj):
     O.object.mode_set(mode="OBJECT")
     v = C.object.data.vertices
@@ -113,17 +151,37 @@ def deselect_all_vertices(obj):
         i.select=False
     return
 
+# Selects vertex of mesh
+# Params:
+#   obj - name of object 
+#   v - index of vertex to select
+# Return:
+#   Nothing
 def select_vertex(obj, v):
     O.object.mode_set(mode="OBJECT")
     obj.data.vertices[v].select = True
     O.object.mode_set(mode = 'EDIT')
     return
 
+# Selects all vertices in a list
+# Params:
+#   obj - name of object
+#   v_list - list of vertices to select
+# Return:
+#   Nothing
 def select_vertices(obj, v_list):
     for v in v_list:
         select_vertex(obj, v)
     return
 
+# Adjusts heights of vertices based on values in list
+# Params:
+#   obj - name of object
+#   vertex_array - list of all vertex heights
+#   vertex_ids - list of vertex ids to be adjusted
+#   new_heights - list of heights; same length as vertex_ids
+# Return:
+#   Nothing
 def adjust_vertex_height(obj, vertex_array, vertex_ids, new_heights):
     value_mod = 0
     h_idx = 0
@@ -358,8 +416,8 @@ def add_modifier(obj, mod_type):
     O.object.modifier_apply()
     return mod
 
-def add_camera(camera_name, loc_vec, rot_rad_vec):
-    print("Adding camera", camera_name, "; loc =", loc_vec, "rot =", rot_rad_vec)
+def add_camera(camera_name, loc_vec):
+    print("Adding camera", camera_name, "; loc =", loc_vec)
     scn = C.scene
 
     # create the first camera
@@ -369,7 +427,6 @@ def add_camera(camera_name, loc_vec, rot_rad_vec):
     # create the first camera object
     cam_obj = bpy.data.objects.new(camera_name, cam)
     cam_obj.location = (loc_vec[0], loc_vec[1], loc_vec[2])
-    cam_obj.rotation_euler = (radians(rot_rad_vec[0]), radians(rot_rad_vec[1]), radians(rot_rad_vec[2]))
     scn.collection.objects.link(cam_obj)
     return cam_obj
 
@@ -410,7 +467,7 @@ def select_flat_vertices(obj, base_size, flat_array):
                     # Select vertices, found a flat square face
                     flat_array.append(v.index)
 
-def generate_building_locations(base_size, b_count, flat_array, b_locs):
+def generate_building_locations(base_size, b_count, b_size_range, flat_array, b_locs):
     #don't want edges where squares could overlap;
     # create two arrays, for each edge to avoid.
     outer_edge_h = []
@@ -422,20 +479,28 @@ def generate_building_locations(base_size, b_count, flat_array, b_locs):
         outer_edge_v.append(max_vert - (n*(base_size-1)))
 
     b_loc_list = []
-    
     rand_loc = 0
+    b_height = 0
+    b_vertices = []
     for bc in range(b_count):
         b_loc_list[:] = []
         while (True):
+            b_height = randint(b_size_range[0], b_size_range[1])+1
+            b_vertices[:] = []
             rand_loc = flat_array[randint(0,len(flat_array)-1)]
-            if (rand_loc+1 in flat_array) and (rand_loc+v_adj in flat_array) and (rand_loc+1+v_adj in flat_array) and (rand_loc not in outer_edge_h) and (rand_loc not in outer_edge_v):
-                b_loc_list.extend([rand_loc, rand_loc+1, rand_loc+v_adj, rand_loc+1+v_adj])
-                flat_array.remove(rand_loc)
-                flat_array.remove(rand_loc+1)
-                flat_array.remove(rand_loc+v_adj)
-                flat_array.remove(rand_loc+1+v_adj)
+            for v_v in range(b_height):
+                for v_h in range(b_height):
+                    loc_to_add = rand_loc+(v_h)+(v_v*v_adj)
+                    if (loc_to_add in flat_array) and ((v_h == b_height-1) or (loc_to_add not in outer_edge_h)) and ((v_v == b_height-1) or (loc_to_add not in outer_edge_v)):
+                        b_vertices.append(loc_to_add)
+            if (len(b_vertices) == ((b_height)*(b_height))):
+                b_loc_list.extend(b_vertices)
+                for v_r in b_vertices:
+                    flat_array.remove(v_r)
                 break
+
         b_locs[bc] = b_loc_list[:]
+    print(b_locs)
 
 def main():
     print("\n\n\n\n\nGenerating Terrain...")
@@ -448,27 +513,27 @@ def main():
     remove_all_meshes()
         
     # create base
-    base_size = 20 # 2 is min size
-    z_range = [4, 6]
+    base_size = 30 # 2 is min size
+    z_range = [8, 16]
     count = 5
-    mountain_level_range = [4, 6]
+    mountain_level_range = [5, 10]
     base_x_scl = base_size
     base_y_scl = base_size
     
     v_adj = base_size - 1
 
     # https://blender.stackexchange.com/questions/5210/pointing-the-camera-in-a-particular-direction-programmatically
-    cam1_loc = [base_x_scl,-base_y_scl,mountain_level_range[1]*4.2]
-    cam1_rot = [40,0,45]
+    cam1_loc = [base_x_scl*1.5,0,mountain_level_range[1]*4]
     cam1_name = "Camera 1"
 
     try:
-        bpy.data.objects[cam1_name].select_set(True)
-        bpy.ops.object.delete() 
+        D.objects[cam1_name].select_set(True)
+        O.object.delete() 
+        O.outliner.id_operation(type='UNLINK')
     except:
         pass
 
-    cam1 = add_camera("Camera 1", cam1_loc, cam1_rot)
+    cam1 = add_camera("Camera 1", cam1_loc)
         
 #    create_cube("Base", 0, 0, -0.1, base_x_scl, base_y_scl, 0.1)
     base = create_plane("Base", 0, 0, 0, base_x_scl, base_y_scl)
@@ -511,7 +576,7 @@ def main():
     select_flat_vertices(base, base_size, flat_array)
         
     O.object.mode_set(mode = 'OBJECT')
-    s_group.remove(flat_array) # uninclude buildings from smoothing
+    
 
     # f_group = C.object.vertex_groups.new( name = 'FLAT_GROUP' )
     # O.object.mode_set(mode = 'OBJECT') 
@@ -519,11 +584,14 @@ def main():
 
     # pick random location(s) for cubes (buildings)
     b_count = 3
+    b_size_range = [1,3]
     b_locs = [[]] * b_count
-    generate_building_locations(base_size, b_count, flat_array, b_locs)
+    generate_building_locations(base_size, b_count, b_size_range, flat_array, b_locs)
     
     for bc in range(b_count):
+        s_group.remove(b_locs[bc]) # uninclude buildings from smoothing
         select_vertices(base, b_locs[bc])
+        O.mesh.duplicate()
         O.mesh.extrude_region_move(TRANSFORM_OT_translate={"value":(0, 0, 2)})
         deselect_all_vertices(base)
 
@@ -546,9 +614,4 @@ def main():
     print("Done.")
     
 if __name__ == "__main__":
-    # register()
-
-    # # test call
-    # bpy.ops.wm.modal_timer_operator()  
     main()
-
