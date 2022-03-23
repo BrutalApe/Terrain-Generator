@@ -1,7 +1,7 @@
 #terrain_gen_2
 #instead of using cubes, subdivide a plane 
 #raise/lower vertices to achieve same desired terrain effect
-# fname = "C:/Users/scott/Documents/Projects/terrain_gen_2.py"
+# fname = "C:/.../terrain_gen_2.py"
 # exec(compile(open(fname).read(), fname, 'exec'))
 
 import bpy
@@ -201,11 +201,29 @@ def adjust_vertex_height(obj, vertex_array, vertex_ids, new_heights):
         
         h_idx += 1
 
+# Adds small random variation to number
+# Params:
+#   num - number to be modified
+#   var - variation amount
+# Return:
+#   resulting number rounded 3
 def variate_num(num, var):
     variation = ((((randint(0,20))/20) - 0.5) * var)
     # print(variation)
     return round(num + variation, 3)
 
+# Creates single mountain on plane
+# Params:
+#   obj - object to create mountain on (plane)
+#   vertex_array - list of all vertices of plane, modifed to show z-location
+#   z_min - minimum height of mountain peak
+#   z_max - maximum height of mountain peak
+#   size - size of plane
+#   vertex_ids - list of peak vertex locations
+#   mt_levels - list of mountain 'levels', measure of how wide they are
+#   i - index of which values in vertex_ids and mt_levels to use for current mountain
+# Return:
+#   Nothing
 def create_mountain(obj, vertex_array, z_min, z_max, size, vertex_ids, mt_levels, i):
     vertex_id = vertex_ids[i]
     mt_level = mt_levels[i]
@@ -321,6 +339,16 @@ def create_mountain(obj, vertex_array, z_min, z_max, size, vertex_ids, mt_levels
         # print(vertex_updated)
     print("\n\r")
 
+# Create mountains on mesh (plane)
+# Params:
+#   object_name - name of plane to use
+#   vertex_array - list of all vertices of plane, modifed to show z-location
+#   mt_level_range - lower and upper bounds of mountain levels
+#   size - size of plane
+#   count - how many mountains to create
+#   z_range - upper and lower bounds of mountain peak heights
+# Return:
+#   Nothing
 def create_mountains(object_name, vertex_array, mt_level_range, size, count, z_range):
     print("Creating mountains...")
     
@@ -406,6 +434,12 @@ def create_mountains(object_name, vertex_array, mt_level_range, size, count, z_r
     
 #    print(available_ids)
 
+# Adds a modifier to a mesh object
+# Params:
+#   obj - name of object to modify
+#   mod_type - mod to add to object
+# Return:
+#   modifier created
 def add_modifier(obj, mod_type):
     O.object.mode_set(mode="OBJECT") 
    
@@ -416,6 +450,12 @@ def add_modifier(obj, mod_type):
     O.object.modifier_apply()
     return mod
 
+# Creates a camera in the scene
+# Params:
+#   camera_name - name of camera to be created
+#   loc_vec - location of camera
+# Return:
+#   camera object created
 def add_camera(camera_name, loc_vec):
     print("Adding camera", camera_name, "; loc =", loc_vec)
     scn = C.scene
@@ -430,6 +470,12 @@ def add_camera(camera_name, loc_vec):
     scn.collection.objects.link(cam_obj)
     return cam_obj
 
+# Points camera at specific location
+# Params:
+#   obj_camera - camera object to rotate
+#   point - x,y,z coordinates to look at
+# Return:
+#   Nothing
 def look_at(obj_camera, point):
     loc_camera = obj_camera.matrix_world.to_translation()
 
@@ -440,17 +486,34 @@ def look_at(obj_camera, point):
     # assume we're using euler rotation
     obj_camera.rotation_euler = rot_quat.to_euler()
 
+# Selects all meshes in scene
+# Params:
+#   Nothing
+# Return:
+#   Nothing
 def select_all_meshes():
     for obj in C.scene.objects:
         if obj.type == "MESH":
             obj.select_set(True)
 
+# Removes all meshes in scene
+# Params:
+#   Nothing
+# Return:
+#   Nothing
 def remove_all_meshes():
     
     select_all_meshes()
     
     O.object.delete()
 
+# Selects all vertices of object connected to a face at z = 0
+# Params:
+#   obj - object to modify (plane)
+#   base_size - size of plane
+#   flat_array - array to be filled with flat face vertices
+# Return:
+#   Nothing
 def select_flat_vertices(obj, base_size, flat_array):
     O.object.mode_set(mode = 'EDIT') 
     me = obj.data
@@ -467,6 +530,15 @@ def select_flat_vertices(obj, base_size, flat_array):
                     # Select vertices, found a flat square face
                     flat_array.append(v.index)
 
+# Generates location indices for buildings (cubes) on plane
+# Params:
+#   base_size - size of plane
+#   b_count - how many buildings desired
+#   b_size_range - lower and upper bounds of size of buildings (width)
+#   flat_array - array of usable vertices
+#   b_locs - list of lists, filled with vertices of each building
+# Return:
+#   Nothing
 def generate_building_locations(base_size, b_count, b_size_range, flat_array, b_locs):
     #don't want edges where squares could overlap;
     # create two arrays, for each edge to avoid.
