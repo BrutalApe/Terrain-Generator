@@ -540,7 +540,7 @@ def get_flat_vertices(obj, base_size, flat_array):
 #   flat_array - array of usable vertices
 #   b_locs - list of lists, filled with vertices of each building
 # Return:
-#   Nothing
+#   number of buildings whose locations were successfully generated
 def generate_building_locations(base_size, b_count, b_size_range, flat_array, b_locs):
     # Create outer edge arrays; if a building would generate here, it could wrap 
     # around to the other side of the plane due to the way vertices are indexed.
@@ -559,12 +559,23 @@ def generate_building_locations(base_size, b_count, b_size_range, flat_array, b_
     b_size = 0
     b_vertices = []
     
+    # Used to prevent infinite building location selection if an error occurs
+    # It's either this brute-force method, or create a smarter way of choosing locations to avoid conflicts.
+    fail_count = 0 
+    max_fails_allowed = 50
+    
+    # If not all buildings have space, this will be returned isntead of b_count
+    success_count = 0
+
     # For each buidling, pick a size (in range) and vertex location 
     # (using bottom right, so all other vertices in building will be greater than that value).
     # Then check each vertex of building and ensure it is in flat array and not on outer edge (unless it's the last edge of building)
     for bc in range(b_count):
         b_loc_list[:] = []
         while (True):
+            if fail_count == max_fails_allowed:
+                break
+
             # Get building size and location
             b_size = randint(b_size_range[0], b_size_range[1])+1
             b_vertices[:] = []
@@ -583,11 +594,17 @@ def generate_building_locations(base_size, b_count, b_size_range, flat_array, b_
                 b_loc_list.extend(b_vertices)
                 for v_r in b_vertices:
                     flat_array.remove(v_r)
+                success_count += 1
                 break
-        
-        # Add current building vertices to list of lists
-        b_locs[bc] = b_loc_list[:]
+            else:
+                fail_count += 1
+        if fail_count == max_fails_allowed:
+            break
+        else:
+            # Add current building vertices to list of lists
+            b_locs[bc] = b_loc_list[:]
     print(b_locs)
+    return success_count
 
 def main():
     print("\n\n\n\n\nGenerating Terrain...")
@@ -671,15 +688,15 @@ def main():
     get_flat_vertices(base, base_size, flat_array)
     O.object.mode_set(mode = 'OBJECT')
 
-    b_count = 3                 # How many buldings to create
-    b_size_range = [1,3]        # Range of building sizes (widths)
+    b_count = 13                 # How many buldings to create
+    b_size_range = [3,4]        # Range of building sizes (widths)
     b_locs = [[]] * b_count
-    generate_building_locations(base_size, b_count, b_size_range, flat_array, b_locs)
+    b_created_count = generate_building_locations(base_size, b_count, b_size_range, flat_array, b_locs)
 
     # Use vertices found for building locations, duplicate and extrude them
     # Must be duplicated, otherwise larger buildings (any size that simply raises a vertex instead of creating a new one) 
     # will change vertex id pattern used throughout.    
-    for bc in range(b_count):
+    for bc in range(b_created_count):
         s_group.remove(b_locs[bc]) # uninclude buildings from smoothing
         select_vertices(base, b_locs[bc])
         O.mesh.duplicate()
