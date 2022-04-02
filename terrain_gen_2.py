@@ -205,15 +205,11 @@ def variate_num(num, var):
 #   z_min - minimum height of mountain peak
 #   z_max - maximum height of mountain peak
 #   size - size of plane
-#   vertex_ids - list of peak vertex locations
-#   mt_levels - list of mountain 'levels', measure of how wide they are
-#   i - index of which values in vertex_ids and mt_levels to use for current mountain
+#   vertex_id - peak vertex locations
+#   mt_level - mountain 'level', measure of how wide it is
 # Return:
 #   Nothing
-def create_mountain(obj, vertex_array, z_min, z_max, size, vertex_ids, mt_levels, i):
-    # Get peak vertex and mt level for current mountain
-    vertex_id = vertex_ids[i]
-    mt_level = mt_levels[i]
+def create_mountain(obj, vertex_array, z_min, z_max, size, vertex_id, mt_level):
     print(mt_level, "-", vertex_id)
 
     # Set height for mountain, set base heights for each layer below peak
@@ -394,13 +390,17 @@ def create_mountains(object_name, vertex_array, mt_level_range, size, count, z_r
         temp_available_ids[:] = []
         temp_mt_levels[:] = []
         peak_options[:] = [] 
+        
+        # No need for more, filled enough groups with peaks.
+        if ((g * max_peak_in_group_count) >= count):
+            break
 
         # Get mt_levels to be used in current group
         for p in range(max_peak_in_group_count):
             # Don't get more mt_levels than there are mountains to create
             if (((g * max_peak_in_group_count) + p) < count):
                 temp_mt_levels.append(randint(mt_level_range[0], mt_level_range[1]))
-        
+
         # Get list of available ids for max mt_level in group
         for m in range(layer_count):
             if (m <= max(temp_mt_levels)):
@@ -432,8 +432,8 @@ def create_mountains(object_name, vertex_array, mt_level_range, size, count, z_r
             if (((g * max_peak_in_group_count) + p) < count):
                 mtn_group_peak_list[g].append(peak_options[randint(0, len(peak_options)-1)])
                 peak_options.remove(mtn_group_peak_list[g][p])
-        
-        mtn_group_lvl_list[g] = temp_mt_levels
+
+        mtn_group_lvl_list[g].extend(temp_mt_levels)
 
     print(mtn_group_peak_list)
     print(mtn_group_lvl_list)
@@ -442,40 +442,10 @@ def create_mountains(object_name, vertex_array, mt_level_range, size, count, z_r
     # Maybe can use values found while creating groups to get localized plane subsection.
     for gci in range(max_group_count):
         for pigci in range(max_peak_in_group_count):
-            pass
-            # create_mountain(obj, vertex_array, z_min, z_max, size, vertex_ids, mt_levels, i)
-
-
-    for id in range(count):
-        available_ids[:] = [] # reset available ids
-
-        # Pick a random mt_level in range
-        mt_levels.append(randint(mt_level_range[0], mt_level_range[1]))
-
-        # Fill available_ids only with layers that will prevent a mountain of level_width from reaching edge
-        for m in range(layer_count):
-            if (m <= mt_levels[id]):
-                continue
-            available_ids.extend(layers[m])
-
-        # If more mountains requested than can be fit in space, stop creating mountains.
-        if (count > len(available_ids)):
-            print("Too many mountains requested, not enough space...")
-            return
-
-        # From available ids, pick a mountain peak vertex.
-        temp_id = available_ids[randint(0, len(available_ids)-1)]
-        while (temp_id in vertex_ids):
-            temp_id = available_ids[randint(0, len(available_ids)-1)]
-        
-        vertex_ids.append(temp_id) # Add to list of vertex ids to use
-
-    # Create each mountain using vertices collected
-    # It would be faster if full vertex array wasn't used, 
-    # just subset required for each mtn grouping
-    for i in range(count):
-        create_mountain(obj, vertex_array, z_min, z_max, size, vertex_ids, mt_levels, i)
-        update_viewport()
+            if (((gci * max_peak_in_group_count) + pigci) >= count):
+                break
+            create_mountain(obj, vertex_array, z_min, z_max, size, mtn_group_peak_list[gci][pigci], mtn_group_lvl_list[gci][pigci])
+            update_viewport()
 
 # Adds a modifier to a mesh object
 # Params:
@@ -670,7 +640,7 @@ def main():
 
     
     # create base
-    mode = 0
+    mode = 1
     if (mode == 0):
         base_size = 10
         z_range = [5, 5]
@@ -683,12 +653,13 @@ def main():
     
     elif (mode == 1):
         base_size = 75
-        z_range = [8, 15]
-        count = 15
+        z_range = [4, 7]
+        count = 25
         mountain_level_range = [8,15]
         b_count = 12
         b_size_range = [2,4]
         b_height_range = [2,4]
+        mountain_group_stats = [5, 5]
 
     else:
         pass
@@ -790,9 +761,9 @@ def main():
     #     if a.type == 'VIEW_3D':
     #         overlay = a.spaces.active.overlay
     #         overlay.show_extra_indices = True
-    O.object.mode_set(mode = 'EDIT')  
-    O.mesh.select_mode(type="VERT")
-    O.mesh.select_all(action = 'SELECT')
+    # O.object.mode_set(mode = 'EDIT')  
+    # O.mesh.select_mode(type="VERT")
+    # O.mesh.select_all(action = 'SELECT')
     print("Done.")
     
 if __name__ == "__main__":
