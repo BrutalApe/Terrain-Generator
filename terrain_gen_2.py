@@ -15,6 +15,8 @@ from math import *
 from random import randint
 from time import sleep
 
+import cProfile
+
 # Updates viewport while running code
 # https://blender.stackexchange.com/questions/40823/alternative-to-redraw-timer
 # Params:
@@ -89,44 +91,20 @@ def triangulate_edit_object(obj_name):
     bm = bmesh.from_edit_mesh(me)
     
     total_faces = 0
+    faces_to_modify = []
     for f in bm.faces:
         for v in f.verts:
             if (v.co.z != 0):
+                faces_to_modify.append(f)
                 # If any vertex of face is higher than 0 on z-axis, triangulate it.
-                bmesh.ops.triangulate(bm, faces=bm.faces[(f.index):(f.index+1)])
+                # bmesh.ops.triangulate(bm, faces=bm.faces[(f.index):(f.index+1)])
                 total_faces += 1
                 break
-    
+    bmesh.ops.triangulate(bm, faces=faces_to_modify)
     print("Total faces triangulated:", total_faces)
     # Show the updates in the viewport
     # and recalculate n-gon tessellation.
     bmesh.update_edit_mesh(me, True)
-
-# Subdivides a specific face
-# Params:
-#   object_name - name of object to be subdivided
-#   face - index of face to be subdivided
-#   num_of_cuts - how many times to subdivide
-# Return:
-#   Nothing 
-def subdivide_face(object_name, face, num_of_cuts):
-    print("Subdividing face...")
-    select_object(object_name)
-    obj = C.active_object
-
-    # Deselect all faces
-    O.object.mode_set(mode = 'EDIT') 
-    O.mesh.select_mode(type="FACE")
-    O.mesh.select_all(action = 'DESELECT')
-    O.object.mode_set(mode = 'OBJECT')
-    
-    # select the chosen face
-    obj.data.polygons[face].select = True
-
-    # Subdivide
-    O.object.mode_set(mode="EDIT")
-    O.mesh.subdivide(number_cuts=num_of_cuts)
-    O.object.mode_set(mode="OBJECT")
     
 # Subdivides a plane
 # Params:
@@ -245,7 +223,7 @@ def create_mountain(obj, vertex_array, z_min, z_max, size, vertex_ids, mt_levels
     temp_height = round((mt_level+1)*0.1*z_scl,3)
     for h in range(mt_level+1):
         vertex_heights_base[h] = round(vertex_heights_base[h]*temp_height,3)
-    
+
     # existence of each vertex random
     extra_layers = (mt_level+2)//3
     existence_prob = [100]*(mt_level+extra_layers)
@@ -266,6 +244,7 @@ def create_mountain(obj, vertex_array, z_min, z_max, size, vertex_ids, mt_levels
     vertex_updated = []        
     v_adj = size-1
     print("Layer count: ", end="")
+    v_mod_list = [v_adj, -v_adj, 1, -1]
 
     # For each layer in mountain level, raise the current vertices to update by their height values,
     # then reset the vertex lists and add all adjacent vertices to previous layer (away from center)
@@ -290,22 +269,12 @@ def create_mountain(obj, vertex_array, z_min, z_max, size, vertex_ids, mt_levels
         # Add it to the list of vertices to update
         for vi in range(len(vertex_updated)):
             v = vertex_updated[vi]
-            if (v+v_adj not in vertex_updated) and (v+v_adj not in vertex_to_update) and (randint(1,100) <= existence_prob[l]):
-                vertex_to_update.append(v+v_adj)
-                vertex_heights_to_update.append(variate_num(vertex_heights_base[l+1], 0.4))
-                vertices_in_layer_updated += 1
-            if (v-v_adj not in vertex_updated) and (v-v_adj not in vertex_to_update) and (randint(1,100) <= existence_prob[l]):
-                vertex_to_update.append(v-v_adj)
-                vertex_heights_to_update.append(variate_num(vertex_heights_base[l+1], 0.4))
-                vertices_in_layer_updated += 1
-            if (v+1 not in vertex_updated) and (v+1 not in vertex_to_update) and (randint(1,100) <= existence_prob[l]):
-                vertex_to_update.append(v+1)
-                vertex_heights_to_update.append(variate_num(vertex_heights_base[l+1], 0.4))
-                vertices_in_layer_updated += 1
-            if (v-1 not in vertex_updated) and (v-1 not in vertex_to_update) and (randint(1,100) <= existence_prob[l]):
-                vertex_to_update.append(v-1)
-                vertex_heights_to_update.append(variate_num(vertex_heights_base[l+1], 0.4))
-                vertices_in_layer_updated += 1
+            for v_m in v_mod_list:
+                temp_v = v+v_m
+                if (temp_v not in vertex_updated) and (temp_v not in vertex_to_update) and (randint(1,100) <= existence_prob[l]):
+                    vertex_to_update.append(temp_v)
+                    vertex_heights_to_update.append(variate_num(vertex_heights_base[l+1], 0.4))
+                    vertices_in_layer_updated += 1
         print(vertices_in_layer_updated, end="-")
     
     # Now, extra layers.
@@ -336,22 +305,12 @@ def create_mountain(obj, vertex_array, z_min, z_max, size, vertex_ids, mt_levels
             v = outer_ring[o]
             vertex_to_update[:] = []
             vertex_heights_to_update[:] = []
-            if (v+v_adj not in vertex_updated) and (randint(1,100) <= existence_prob[e+mt_level]):
-                vertex_to_update.append(v+v_adj)
-                vertex_heights_to_update.append(variate_num(extra_vertex_heights_base[e], 0.2))
-                vertices_in_extra_layer_updated += 1
-            if (v-v_adj not in vertex_updated) and (randint(1,100) <= existence_prob[e+mt_level]):
-                vertex_to_update.append(v-v_adj)
-                vertex_heights_to_update.append(variate_num(extra_vertex_heights_base[e], 0.2))
-                vertices_in_extra_layer_updated += 1
-            if (v+1 not in vertex_updated) and (randint(1,100) <= existence_prob[e+mt_level]):
-                vertex_to_update.append(v+1)
-                vertex_heights_to_update.append(variate_num(extra_vertex_heights_base[e], 0.2))
-                vertices_in_extra_layer_updated += 1
-            if (v-1 not in vertex_updated) and (randint(1,100) <= existence_prob[e+mt_level]):
-                vertex_to_update.append(v-1)
-                vertex_heights_to_update.append(variate_num(extra_vertex_heights_base[e], 0.2))
-                vertices_in_extra_layer_updated += 1
+            for v_m in v_mod_list:
+                temp_v = v+v_m
+                if (temp_v not in vertex_updated) and (randint(1,100) <= existence_prob[e+mt_level]):
+                    vertex_to_update.append(temp_v)
+                    vertex_heights_to_update.append(variate_num(extra_vertex_heights_base[e], 0.2))
+                    vertices_in_extra_layer_updated += 1
             vertex_updated.extend(vertex_to_update)
 
             adjust_vertex_height(obj, vertex_array, vertex_to_update, vertex_heights_to_update)
@@ -366,9 +325,10 @@ def create_mountain(obj, vertex_array, z_min, z_max, size, vertex_ids, mt_levels
 #   size - size of plane
 #   count - how many mountains to create
 #   z_range - upper and lower bounds of mountain peak heights
+#   mountain_group_stats - first value is number of mountain groups, second is max mountains in group
 # Return:
 #   Nothing
-def create_mountains(object_name, vertex_array, mt_level_range, size, count, z_range):
+def create_mountains(object_name, vertex_array, mt_level_range, size, count, z_range, mountain_group_stats):
     print("Creating mountains...")
     
     z_min = z_range[0]
@@ -408,7 +368,87 @@ def create_mountains(object_name, vertex_array, mt_level_range, size, count, z_r
     vertex_ids = []*count
     mt_levels = []*count
 
+    # Separate mountains into groups:
+    max_group_count = mountain_group_stats[0]
+    max_peak_in_group_count = mountain_group_stats[1]
+
+    # Make sure number of mtns requested can fit into these groupings
+    if ((max_group_count * max_peak_in_group_count) < count):
+        print("Too many mountains to fit in those group conditions.")
+        return
+
+    # Create list of lists for mountain groupings
+    mtn_group_peak_list = [[] for _ in range(max_group_count)]
+    mtn_group_lvl_list = [[] for _ in range(max_group_count)]
+    mtn_group_index = 0 # Group index (0-max_group_count)
+    mtn_group_peak_index = 0 # Peak index (0-max_peak_in_group_count)
+    peak_option_square_base = 0
+
+    temp_mt_levels = [] # Used to store mt levels for deciding groups, before adding to mt_levels
+    temp_available_ids = [] # Used to store available ids that can be used for group
+    peak_options = [] # Used to store possible indices for peak vertices in group
+
+    for g in range(max_group_count):
+        # Reset lists
+        available_ids[:] = []
+        temp_available_ids[:] = []
+        temp_mt_levels[:] = []
+        peak_options[:] = [] 
+
+        # Get mt_levels to be used in current group
+        for p in range(max_peak_in_group_count):
+            # Don't get more mt_levels than there are mountains to create
+            if (((g * max_peak_in_group_count) + p) < count):
+                temp_mt_levels.append(randint(mt_level_range[0], mt_level_range[1]))
+        
+        # Get list of available ids for max mt_level in group
+        for m in range(layer_count):
+            if (m <= max(temp_mt_levels)):
+                continue
+            available_ids.extend(layers[m])
+
+        # Now, need list of vertex ids to pick peak ids from
+        # Will be square (starting in bottom left), so a square of available id's 
+        # that's dependent on max_peak_in_group_count is required 
+        # i.e. [60, 61, 69, 70] (mpigc <= 4) or [70, 71, 72, 79, 80, 81, 88, 89 90] (mpigc <= 9)
+        square_size = (ceil(sqrt(max_peak_in_group_count))) # Gets the closest value whose square is >= mpigc
+        total_square_size = int(sqrt(len(available_ids))) # len(available_ids) will always be a square value
+        
+        # Starting value of available_ids used as base for calculating others in square
+        base_temp_a_ids = available_ids[0] 
+        for si_x in range(total_square_size - square_size + 1):
+            for si_y in range(total_square_size - square_size + 1):
+                temp_available_ids.append(base_temp_a_ids + (si_x * (size-1)) + si_y)
+        
+        # Now, randomly pick one of those and generate square of peak options
+        peak_option_square_base = temp_available_ids[randint(0, len(temp_available_ids)-1)]
+        for si_x in range(square_size):
+            for si_y in range(square_size):
+                peak_options.append(peak_option_square_base + (si_x * (size-1)) + si_y)
+
+        # Get mt_levels to be used in current group
+        for p in range(max_peak_in_group_count):
+            # Don't get more mt_levels than there are mountains to create
+            if (((g * max_peak_in_group_count) + p) < count):
+                mtn_group_peak_list[g].append(peak_options[randint(0, len(peak_options)-1)])
+                peak_options.remove(mtn_group_peak_list[g][p])
+        
+        mtn_group_lvl_list[g] = temp_mt_levels
+
+    print(mtn_group_peak_list)
+    print(mtn_group_lvl_list)
+
+    # Need to now somehow not use entire vertex array space to create each mountain...
+    # Maybe can use values found while creating groups to get localized plane subsection.
+    for gci in range(max_group_count):
+        for pigci in range(max_peak_in_group_count):
+            pass
+            # create_mountain(obj, vertex_array, z_min, z_max, size, vertex_ids, mt_levels, i)
+
+
     for id in range(count):
+        available_ids[:] = [] # reset available ids
+
         # Pick a random mt_level in range
         mt_levels.append(randint(mt_level_range[0], mt_level_range[1]))
 
@@ -428,10 +468,11 @@ def create_mountains(object_name, vertex_array, mt_level_range, size, count, z_r
         while (temp_id in vertex_ids):
             temp_id = available_ids[randint(0, len(available_ids)-1)]
         
-        available_ids[:] = [] # reset available ids
         vertex_ids.append(temp_id) # Add to list of vertex ids to use
 
     # Create each mountain using vertices collected
+    # It would be faster if full vertex array wasn't used, 
+    # just subset required for each mtn grouping
     for i in range(count):
         create_mountain(obj, vertex_array, z_min, z_max, size, vertex_ids, mt_levels, i)
         update_viewport()
@@ -618,11 +659,45 @@ def main():
     # Clear scene
     remove_all_meshes()
         
+    base_size = 0                   # 2 is min size
+    z_range = [0, 0]                # Range of heights of peaks
+    count = 1                       # Number of mountains to create
+    mountain_level_range = [0, 0]   # Range of mountain levels
+    b_count = 0                     # How many buildings to create
+    b_size_range = [0, 0]           # Range of building sizes (widths)
+    b_height_range = [0, 0]         # Range of building sizes (heights)
+    mountain_group_stats = [0, 0]   # First value is number of groups, second is max mountains in group
+
+    
     # create base
-    base_size = 30                  # 2 is min size
-    z_range = [8, 16]               # Range of heights of peaks
-    count = 5                       # Number of mountains to create
-    mountain_level_range = [5, 10]  # Range of mountain levels
+    mode = 0
+    if (mode == 0):
+        base_size = 10
+        z_range = [5, 5]
+        count = 3
+        mountain_level_range = [2,2]
+        b_count = 0
+        b_size_range = [1,1]
+        b_height_range = [1,1]
+        mountain_group_stats = [1, 4]
+    
+    elif (mode == 1):
+        base_size = 75
+        z_range = [8, 15]
+        count = 15
+        mountain_level_range = [8,15]
+        b_count = 12
+        b_size_range = [2,4]
+        b_height_range = [2,4]
+
+    else:
+        pass
+
+    # Maybe, to speed up mountain creating, can pre-decide on groupings; that way,
+    # whole terrain space does not need to be scanned; could technically create smaller planes
+    # and use those as base for mountain groupings.
+
+    # mountain_group_stats = [3, 5]
     
     # For now, using square base, but other shaped planes should be possible
     base_x_scl = base_size
@@ -657,7 +732,7 @@ def main():
     smooth_array = []
 
     # Create mountains first
-    create_mountains("Base", vertex_array, mountain_level_range, base_size, count, z_range)
+    create_mountains("Base", vertex_array, mountain_level_range, base_size, count, z_range, mountain_group_stats)
     
     # Create vertex group 
     s_group = C.object.vertex_groups.new( name = 'SMOOTH_GROUP' )
@@ -688,8 +763,6 @@ def main():
     get_flat_vertices(base, base_size, flat_array)
     O.object.mode_set(mode = 'OBJECT')
 
-    b_count = 13                 # How many buldings to create
-    b_size_range = [3,4]        # Range of building sizes (widths)
     b_locs = [[]] * b_count
     b_created_count = generate_building_locations(base_size, b_count, b_size_range, flat_array, b_locs)
 
@@ -700,7 +773,7 @@ def main():
         s_group.remove(b_locs[bc]) # uninclude buildings from smoothing
         select_vertices(base, b_locs[bc])
         O.mesh.duplicate()
-        O.mesh.extrude_region_move(TRANSFORM_OT_translate={"value":(0, 0, 2)})
+        O.mesh.extrude_region_move(TRANSFORM_OT_translate={"value":(0, 0, 2*randint(b_height_range[0],b_height_range[1]))})
         deselect_all_vertices(base)
 
         # update_viewport()
@@ -717,10 +790,11 @@ def main():
     #     if a.type == 'VIEW_3D':
     #         overlay = a.spaces.active.overlay
     #         overlay.show_extra_indices = True
-    # O.object.mode_set(mode = 'EDIT')  
-    # O.mesh.select_mode(type="VERT")
-    # O.mesh.select_all(action = 'SELECT')
+    O.object.mode_set(mode = 'EDIT')  
+    O.mesh.select_mode(type="VERT")
+    O.mesh.select_all(action = 'SELECT')
     print("Done.")
     
 if __name__ == "__main__":
+    # cProfile.run("main()")
     main()
