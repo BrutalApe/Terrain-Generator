@@ -239,15 +239,29 @@ def create_mountain(obj, vertex_array, z_min, z_max, size, vertex_id, mt_level):
     vertex_heights_to_update = [variate_num(vertex_heights_base[0], 0.4)] # Variate peak by a small amount
     vertex_updated = []        
     v_adj = size-1
-    print("Layer count: ", end="")
     v_mod_list = [v_adj, -v_adj, 1, -1]
+    vertex_vtu_layer_groups = [[]]*(mt_level+1)    # vertices to update for each layer
+    vertex_vhtu_layer_groups = [[]]*(mt_level+1)   # heights for vertices for each layer
 
+    # For each mt level after 1, number of vertices that *could* be modified increases by 4...4, 8, 12
+    # Found equation/pattern; using x as center, real and imaginary axes as directions of expansion:
+    # L1. x
+    # L2. x+1 x+j x-1 x-j
+    # L3. x+2 x+2j x-2 x-2j and x+1+j x-1+j x+1-j x-1-j
+    # L4. x+3 x+3j x-3 x-3j and x+2+j x-2+j x+2-j x-2-j and x+1+2j x-1+2j x+1-2j x-1-2j
+    # Essentially, (mt_layer-1) is base value. Add to x every combination of 1 and j (horizontal and vertical)
+    # where the absolute value of the coefficients is base value.
+
+    print("Layer count: ", end="")
     # For each layer in mountain level, raise the current vertices to update by their height values,
     # then reset the vertex lists and add all adjacent vertices to previous layer (away from center)
     for l in range(mt_level+1):
+
         # Modify current vertex_to_update list with heights
+        vertex_vtu_layer_groups[l].extend(vertex_to_update)
+        vertex_vhtu_layer_groups[l].extend(vertex_heights_to_update)
+
         vertices_in_layer_updated = 0
-        adjust_vertex_height(obj, vertex_array, vertex_to_update, vertex_heights_to_update)
 
         # Record vertices updated
         vertex_updated.extend(vertex_to_update)
@@ -272,6 +286,9 @@ def create_mountain(obj, vertex_array, z_min, z_max, size, vertex_id, mt_level):
                     vertex_heights_to_update.append(variate_num(vertex_heights_base[l+1], 0.4))
                     vertices_in_layer_updated += 1
         print(vertices_in_layer_updated, end="-")
+    
+    for l in range(mt_level+1):
+        adjust_vertex_height(obj, vertex_array, vertex_vtu_layer_groups[l], vertex_vhtu_layer_groups[l])
     
     # Now, extra layers.
     # Set base heights for each extra layer
@@ -440,6 +457,8 @@ def create_mountains(object_name, vertex_array, mt_level_range, size, count, z_r
 
     # Need to now somehow not use entire vertex array space to create each mountain...
     # Maybe can use values found while creating groups to get localized plane subsection.
+    # Actually, does this matter? Isn't it the size of the mountain that affects this part?
+    # Mountains are created by going top down, so maybe minimizing duplicate vertex checking would speed up.
     for gci in range(max_group_count):
         for pigci in range(max_peak_in_group_count):
             if (((gci * max_peak_in_group_count) + pigci) >= count):
@@ -654,12 +673,12 @@ def main():
     elif (mode == 1):
         base_size = 75
         z_range = [4, 7]
-        count = 25
+        count = 15
         mountain_level_range = [8,15]
         b_count = 12
         b_size_range = [2,4]
         b_height_range = [2,4]
-        mountain_group_stats = [5, 5]
+        mountain_group_stats = [4, 4]
 
     else:
         pass
